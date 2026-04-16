@@ -160,17 +160,39 @@
     });
   }
 
+  const MAX_FILE_SIZE = 50 * 1024 * 1024;
+  const VALID_EXTENSIONS = [".csv"];
+  const VALID_TYPES = ["text/csv", "text/plain", "application/vnd.ms-excel"];
+
   async function onFileSelected(event) {
     const file = event.target.files[0];
     if (!file) return;
-    const text = await file.text();
-    ingestCsvText(text, file.name);
+    if (file.size > MAX_FILE_SIZE) {
+      els.fileStatus.textContent = `File is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is 50MB.`;
+      return;
+    }
+    const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+    if (!VALID_EXTENSIONS.includes(ext) && !VALID_TYPES.includes(file.type)) {
+      els.fileStatus.textContent = "Please upload a CSV file.";
+      return;
+    }
+    try {
+      const text = await file.text();
+      ingestCsvText(text, file.name);
+    } catch (error) {
+      els.fileStatus.textContent = `Could not read file: ${error.message}`;
+    }
   }
 
   async function loadSampleData() {
-    const response = await fetch("./sample-finance.csv");
-    const text = await response.text();
-    ingestCsvText(text, "sample-finance.csv");
+    try {
+      const response = await fetch("./sample-finance.csv");
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const text = await response.text();
+      ingestCsvText(text, "sample-finance.csv");
+    } catch (error) {
+      els.fileStatus.textContent = `Could not load sample data: ${error.message}`;
+    }
   }
 
   function ingestCsvText(text, fileName) {
@@ -181,6 +203,43 @@
       state.columns = [];
       renderEmptyState("The CSV is empty or could not be parsed.");
       return;
+    }
+
+    state.rawRows = rows;
+    state.columns = Object.keys(rows[0]);
+    setMappingDefaults();
+    populateMappingControls();
+    els.fileStatus.textContent = `Loaded ${fileName} with ${rows.length.toLocaleString()} rows. Review the mapping and click Apply Mapping.`;
+    applyCurrentMapping();
+  }
+
+  function applyCurrentMapping() {
+    state.mapping = Object.fromEntries(
+      Object.entries(mappingSelects).map(([key, select]) => [key, select.value])
+    );
+
+    const required = ["date", "amount", "head"];
+    const missing = required.filter((key) => !state.mapping[key]);
+    if (missing.length) {
+      renderEmptyState(`Map the required columns first: ${missing.join(", ")}.`);
+      return;
+    }
+
+    let skipped = 0;
+    const records = state.rawRows.map((row, index) => {
+      const record = mapRowToRecord(row, index);
+      if (!record) skipped += 1;
+      return record;
+    }).filter(Boolean);
+    state.records = records.sort((a, b) => a.date - b.date);
+
+    if (!state.records.length) {
+      renderEmptyState("No valid records were produced from the selected mapping.");
+      return;
+    }
+
+    if (skipped) {
+      els.fileStatus.textContent = `Mapped ${records.length.toLocaleString()} rows. ${skipped.toLocaleString()} rows skipped (bad date or amount).`;
     }
 
     state.rawRows = rows;
@@ -305,14 +364,19 @@
 
     const periodSummary = buildPeriodSummary(filtered, state.grain);
     const headSummary = buildHeadSummary(filtered);
-    renderKpis(periodSummary);
-    renderInsights(periodSummary, headSummary, filtered);
-    renderFocus(filtered, headSummary);
-    renderTrendChart(periodSummary);
-    renderHeadChart(headSummary);
-    renderPeriodMatrix(periodSummary);
-    renderPressureList(headSummary);
-    renderDetailTable(filtered);
+
+    const safeRender = (name, fn) => {
+      try { fn(); } catch (error) { console.error(`[CFO Flight Deck] ${name} failed:`, error); }
+    };
+
+    safeRender("kpis", () => renderKpis(periodSummary));
+    safeRender("insights", () => renderInsights(periodSummary, headSummary, filtered));
+    safeRender("focus", () => renderFocus(filtered, headSummary));
+    safeRender("trendChart", () => renderTrendChart(periodSummary));
+    safeRender("headChart", () => renderHeadChart(headSummary));
+    safeRender("periodMatrix", () => renderPeriodMatrix(periodSummary));
+    safeRender("pressureList", () => renderPressureList(headSummary));
+    safeRender("detailTable", () => renderDetailTable(filtered));
   }
 
   function filterRecords(records) {
@@ -813,6 +877,7 @@
   }
 
   function parseCsv(text) {
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
     const rows = [];
     let current = [];
     let cell = "";
@@ -840,7 +905,10 @@
         cell += char;
       }
     }
-    if (cell.length || current.length) {
+    if (inQuotes) {
+      current.push(cell);
+      if (current.some((value) => value !== "")) rows.push(current);
+    } else if (cell.length || current.length) {
       current.push(cell);
       rows.push(current);
     }
@@ -898,15 +966,17 @@
   function humanPeriodLabel(period, grain) {
     if (grain === "monthly") {
       const [year, month] = period.split("-");
-      return new Date(Number(year), Number(month) - 1, 1).toLocaleDateString(undefined, { month: "short", year: "numeric" });
+      const date = new Date(Number(year), Number(month) - 1, 1);
+      return Number.isNaN(date.getTime()) ? period : date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
     }
+    const date = new Date(`${period}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return period;
     if (grain === "weekly") {
-      const date = new Date(`${period}T00:00:00`);
       const end = new Date(date);
       end.setDate(end.getDate() + 6);
       return `${date.toLocaleDateString(undefined, { month: "short", day: "numeric" })} - ${end.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
     }
-    return new Date(`${period}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
   }
 
   function percentChange(current, previous) {
@@ -920,6 +990,7 @@
   }
 
   function formatCurrency(value) {
+    if (!Number.isFinite(value)) return "—";
     return new Intl.NumberFormat(undefined, {
       style: "currency",
       currency: "USD",
@@ -928,6 +999,7 @@
   }
 
   function shortCurrency(value) {
+    if (!Number.isFinite(value)) return "—";
     const abs = Math.abs(value);
     if (abs >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
     if (abs >= 1000) return `${(value / 1000).toFixed(1)}K`;

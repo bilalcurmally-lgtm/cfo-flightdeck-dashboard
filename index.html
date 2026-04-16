@@ -78,6 +78,7 @@
         <div class="filter-grid">
           <label><span>Start date</span><input id="startDate" type="date"></label>
           <label><span>End date</span><input id="endDate" type="date"></label>
+          <p id="dateRangeWarn" class="date-range-warn" hidden>Start date is after end date.</p>
           <label><span>Search</span><input id="searchInput" type="search" placeholder="Head, parent, memo..."></label>
         </div>
         <div class="toggle-group">
@@ -195,6 +196,7 @@
             </thead>
             <tbody id="detailBody"></tbody>
           </table>
+          <div id="detailFooter" class="table-footer"></div>
         </div>
       </section>
     </main>

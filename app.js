@@ -35,6 +35,7 @@
     clearHeadFilterBtn: document.getElementById("clearHeadFilterBtn"),
     startDate: document.getElementById("startDate"),
     endDate: document.getElementById("endDate"),
+    dateRangeWarn: document.getElementById("dateRangeWarn"),
     searchInput: document.getElementById("searchInput"),
     headSearch: document.getElementById("headSearch"),
     headChecklist: document.getElementById("headChecklist"),
@@ -53,7 +54,8 @@
     headChart: document.getElementById("headChart"),
     periodMatrix: document.getElementById("periodMatrix"),
     pressureList: document.getElementById("pressureList"),
-    detailBody: document.getElementById("detailBody")
+    detailBody: document.getElementById("detailBody"),
+    detailFooter: document.getElementById("detailFooter")
   };
 
   const mappingSelects = {
@@ -89,22 +91,50 @@
       render();
     });
 
+    document.addEventListener("keydown", (event) => {
+      if (event.target.tagName === "INPUT" || event.target.tagName === "SELECT" || event.target.tagName === "TEXTAREA") return;
+      const grainMap = { "1": "daily", "2": "weekly", "3": "monthly" };
+      const grain = grainMap[event.key];
+      if (grain) {
+        state.grain = grain;
+        state.filters.focusedPeriod = "";
+        state.filters.focusedHead = "";
+        grainButtons.forEach((item) => item.classList.toggle("is-active", item.dataset.grain === grain));
+        render();
+      }
+    });
+
     grainButtons.forEach((button) => {
       button.addEventListener("click", () => {
         state.grain = button.dataset.grain;
+        state.filters.focusedPeriod = "";
+        state.filters.focusedHead = "";
         grainButtons.forEach((item) => item.classList.toggle("is-active", item === button));
         render();
       });
     });
 
-    flowButtons.forEach((button) => {
-      button.addEventListener("click", () => {
-        const flow = button.dataset.flowFilter;
-        if (state.filters.flows.has(flow) && state.filters.flows.size > 1) {
-          state.filters.flows.delete(flow);
-        } else {
-          state.filters.flows.add(flow);
-        }
+    document.body.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+
+    document.body.addEventListener("drop", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const file = event.dataTransfer.files[0];
+      if (!file) return;
+      if (!file.name.endsWith(".csv") && file.type !== "text/csv") {
+        els.fileStatus.textContent = "Please drop a CSV file.";
+        return;
+      }
+      file.text().then((text) => {
+        ingestCsvText(text, file.name);
+      }).catch(() => {
+        els.fileStatus.textContent = "Could not read the dropped file.";
+      });
+    });
+  }
         syncFlowButtons();
         render();
       });
@@ -116,6 +146,15 @@
         state.filters.endDate = els.endDate.value;
         state.filters.search = els.searchInput.value.trim().toLowerCase();
         state.filters.headSearch = els.headSearch.value.trim().toLowerCase();
+        const inverted = state.filters.startDate && state.filters.endDate && state.filters.startDate > state.filters.endDate;
+        els.dateRangeWarn.hidden = !inverted;
+        if (inverted) {
+          els.startDate.style.borderColor = "var(--danger)";
+          els.endDate.style.borderColor = "var(--danger)";
+        } else {
+          els.startDate.style.borderColor = "";
+          els.endDate.style.borderColor = "";
+        }
         render();
       });
     });
@@ -246,6 +285,7 @@
   }
 
   function render() {
+    detailRowCap = 250;
     if (!state.records.length) {
       renderEmptyState();
       return;
@@ -639,9 +679,12 @@
     `).join("");
   }
 
+  let detailRowCap = 250;
+
   function renderDetailTable(filtered) {
-    const rows = filtered.slice().sort((a, b) => b.date - a.date).slice(0, 250);
-    els.detailBody.innerHTML = rows.map((record) => `
+    const sorted = filtered.slice().sort((a, b) => b.date - a.date);
+    const capped = detailRowCap ? sorted.slice(0, detailRowCap) : sorted;
+    els.detailBody.innerHTML = capped.map((record) => `
       <tr>
         <td>${escapeHtml(record.dateISO)}</td>
         <td>${escapeHtml(capitalize(record.flow))}</td>
@@ -651,6 +694,18 @@
         <td class="${record.flow === "revenue" ? "metric-positive" : "metric-negative"}">${formatCurrency(record.flow === "revenue" ? record.amount : -record.amount)}</td>
       </tr>
     `).join("") || `<tr><td colspan="6" class="table-empty">No visible transactions.</td></tr>`;
+
+    if (sorted.length > capped.length) {
+      els.detailFooter.innerHTML = `<span class="chip-note">Showing ${capped.length.toLocaleString()} of ${sorted.length.toLocaleString()} rows <button id="showAllRowsBtn" class="text-button" type="button">Show all</button></span>`;
+      document.getElementById("showAllRowsBtn").addEventListener("click", () => {
+        detailRowCap = 0;
+        render();
+      });
+    } else if (sorted.length > 0) {
+      els.detailFooter.innerHTML = `<span class="chip-note">${sorted.length.toLocaleString()} transactions</span>`;
+    } else {
+      els.detailFooter.innerHTML = "";
+    }
   }
 
   function resetAllFilters() {

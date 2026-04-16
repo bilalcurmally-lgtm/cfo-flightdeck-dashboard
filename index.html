@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CFO Flight Deck</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand-block">
+        <p class="eyebrow">CEO eagle-eye finance cockpit</p>
+        <h1>CFO Flight Deck</h1>
+        <p class="lede">
+          Load a CSV, map a few columns once, then inspect revenue versus cash outflows
+          by day, week, month, and account head with drilldown filters.
+        </p>
+      </div>
+
+      <section class="panel control-panel">
+        <div class="panel-heading">
+          <h2>Load Data</h2>
+          <p>Bring your chart-of-accounts export directly into the dashboard.</p>
+        </div>
+        <label class="file-input">
+          <span>Choose CSV</span>
+          <input id="csvFile" type="file" accept=".csv,text/csv">
+        </label>
+        <button id="loadSampleBtn" class="ghost-button" type="button">Load bundled sample</button>
+        <p id="fileStatus" class="status-text">No CSV loaded yet.</p>
+      </section>
+
+      <section class="panel control-panel">
+        <div class="panel-heading">
+          <h2>View Mode</h2>
+          <p>Switch the executive rollup without losing your filters.</p>
+        </div>
+        <div class="segmented">
+          <button class="segment is-active" data-grain="daily" type="button">Daily</button>
+          <button class="segment" data-grain="weekly" type="button">Weekly</button>
+          <button class="segment" data-grain="monthly" type="button">Monthly</button>
+        </div>
+      </section>
+
+      <section class="panel control-panel">
+        <div class="panel-heading">
+          <h2>Column Mapping</h2>
+          <p>Auto-detect does the first pass. Adjust if your export uses different names.</p>
+        </div>
+        <div class="mapping-grid">
+          <label><span>Date</span><select id="dateColumn"></select></label>
+          <label><span>Amount</span><select id="amountColumn"></select></label>
+          <label><span>Flow Type</span><select id="typeColumn"></select></label>
+          <label><span>Account Head</span><select id="headColumn"></select></label>
+          <label><span>Parent Head</span><select id="parentColumn"></select></label>
+          <label><span>Description</span><select id="descriptionColumn"></select></label>
+        </div>
+        <div class="mapping-text">
+          <label>
+            <span>Revenue aliases</span>
+            <input id="revenueAliases" type="text" value="revenue,inflow,cash in,income,sales,credit">
+          </label>
+          <label>
+            <span>Outflow aliases</span>
+            <input id="outflowAliases" type="text" value="outflow,cash out,expense,opex,payment,debit">
+          </label>
+        </div>
+        <button id="applyMappingBtn" class="primary-button" type="button">Apply Mapping</button>
+        <p class="footnote">If Flow Type is blank, positive values are treated as revenue and negative values as outflows.</p>
+      </section>
+
+      <section class="panel control-panel">
+        <div class="panel-heading">
+          <h2>Filters</h2>
+          <p>Every chart click also narrows these filters.</p>
+        </div>
+        <div class="filter-grid">
+          <label><span>Start date</span><input id="startDate" type="date"></label>
+          <label><span>End date</span><input id="endDate" type="date"></label>
+          <label><span>Search</span><input id="searchInput" type="search" placeholder="Head, parent, memo..."></label>
+        </div>
+        <div class="toggle-group">
+          <button class="filter-chip is-active" data-flow-filter="revenue" type="button">Revenue</button>
+          <button class="filter-chip is-active" data-flow-filter="outflow" type="button">Cash Outflow</button>
+        </div>
+        <div class="head-filter-box">
+          <div class="head-filter-header">
+            <span>Account heads</span>
+            <button id="clearHeadFilterBtn" class="text-button" type="button">Clear</button>
+          </div>
+          <input id="headSearch" type="search" placeholder="Filter heads">
+          <div id="headChecklist" class="head-checklist"></div>
+        </div>
+        <button id="resetFiltersBtn" class="ghost-button" type="button">Reset all filters</button>
+      </section>
+    </aside>
+
+    <main class="dashboard">
+      <header class="hero panel">
+        <div>
+          <p class="eyebrow">Executive summary</p>
+          <h2>See where cash is earned, where it leaks, and what changed</h2>
+        </div>
+        <div class="hero-actions">
+          <button id="exportVisibleBtn" class="ghost-button" type="button">Export visible rows</button>
+        </div>
+      </header>
+
+      <section class="panel breadcrumb-panel">
+        <div class="panel-heading">
+          <h2>Active Drilldown</h2>
+          <p>Click a period, a head, or an anomaly and the rest of the dashboard will follow.</p>
+        </div>
+        <div id="breadcrumbs" class="breadcrumbs"></div>
+      </section>
+
+      <section class="kpi-grid">
+        <article class="panel kpi-card"><span>Total revenue</span><strong id="totalRevenue">-</strong><small id="revenueDelta">Load data to compare periods.</small></article>
+        <article class="panel kpi-card"><span>Total cash outflow</span><strong id="totalOutflow">-</strong><small id="outflowDelta">Outflows shown as positive cash usage.</small></article>
+        <article class="panel kpi-card"><span>Net cash</span><strong id="netCash">-</strong><small id="netDelta">Revenue minus outflow for the selected view.</small></article>
+        <article class="panel kpi-card"><span>Efficiency ratio</span><strong id="efficiencyRatio">-</strong><small id="efficiencyNote">Revenue divided by outflow.</small></article>
+      </section>
+
+      <section class="analysis-grid">
+        <article class="panel insight-panel">
+          <div class="panel-heading">
+            <h2>CEO Pulse</h2>
+            <p>Short signals. No spreadsheet archaeology.</p>
+          </div>
+          <div id="insightList" class="insight-list"></div>
+        </article>
+
+        <article class="panel focus-panel">
+          <div class="panel-heading">
+            <h2>Focus Breakdown</h2>
+            <p>Current selection by head and parent group.</p>
+          </div>
+          <div id="focusStats" class="focus-stats"></div>
+        </article>
+      </section>
+
+      <section class="viz-grid">
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Trend by Period</h2>
+            <p>Grouped bars show revenue and outflow. The line tracks net cash.</p>
+          </div>
+          <div id="trendChart" class="chart"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Top Heads</h2>
+            <p>Click a bar to isolate a head. Revenue grows to the right, outflows to the left.</p>
+          </div>
+          <div id="headChart" class="chart"></div>
+        </article>
+      </section>
+
+      <section class="viz-grid">
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Period Matrix</h2>
+            <p>Quick scan of revenue, outflow, and net across the active grain.</p>
+          </div>
+          <div id="periodMatrix" class="matrix-table"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Outflow Pressure</h2>
+            <p>Heads with the highest cash pull and the largest share of outflows.</p>
+          </div>
+          <div id="pressureList" class="pressure-list"></div>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <h2>Transaction Drillthrough</h2>
+          <p>The detail table always reflects the exact slice you clicked into.</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Head</th>
+                <th>Parent</th>
+                <th>Description</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody id="detailBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

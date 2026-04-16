@@ -1,0 +1,44 @@
+Date,Flow Type,Account Head,Parent Head,Description,Amount
+2026-01-02,Revenue,Enterprise Subscription,Recurring Revenue,Annual plan billed,42000
+2026-01-03,Revenue,SMB Subscription,Recurring Revenue,Monthly renewals,12400
+2026-01-04,Outflow,Payroll,People,January payroll,-19800
+2026-01-05,Outflow,Performance Marketing,Growth,Search and social spend,-7200
+2026-01-08,Revenue,Implementation Fees,Services,New onboarding fee,9800
+2026-01-10,Outflow,Cloud Hosting,Infrastructure,Compute and storage,-3600
+2026-01-12,Outflow,Office Costs,G&A,Workspace lease,-2500
+2026-01-15,Revenue,Enterprise Subscription,Recurring Revenue,Expansion seat bill,18000
+2026-01-16,Outflow,Contractors,People,Design and engineering support,-5400
+2026-01-18,Revenue,Partner Channel,Channel,Referral deal close,12600
+2026-01-21,Outflow,Performance Marketing,Growth,Campaign burst,-9400
+2026-01-24,Revenue,SMB Subscription,Recurring Revenue,Renewals,13800
+2026-01-25,Outflow,Payment Processing,G&A,Gateway fees,-1800
+2026-01-28,Outflow,Travel,Sales,Field visit,-2200
+2026-02-01,Revenue,Enterprise Subscription,Recurring Revenue,Quarterly prepay,51000
+2026-02-03,Outflow,Payroll,People,February payroll,-20100
+2026-02-04,Outflow,Cloud Hosting,Infrastructure,Compute and storage,-3900
+2026-02-06,Revenue,SMB Subscription,Recurring Revenue,Renewals,13200
+2026-02-07,Outflow,Performance Marketing,Growth,Influencer launch,-11200
+2026-02-10,Revenue,Implementation Fees,Services,Migration package,10400
+2026-02-11,Outflow,Legal and Audit,G&A,Audit retainer,-4700
+2026-02-14,Revenue,Partner Channel,Channel,Channel settlement,14900
+2026-02-17,Outflow,Contractors,People,App QA sprint,-6200
+2026-02-20,Outflow,Travel,Sales,Customer onsite,-4100
+2026-02-22,Revenue,Usage Overage,Variable Revenue,Heavy customer usage,8700
+2026-02-23,Outflow,Office Costs,G&A,Lease and utilities,-2600
+2026-02-26,Revenue,Enterprise Subscription,Recurring Revenue,Seat expansion,22000
+2026-02-28,Outflow,Payment Processing,G&A,Gateway fees,-2400
+2026-03-02,Revenue,Enterprise Subscription,Recurring Revenue,Annual deal close,64000
+2026-03-03,Outflow,Payroll,People,March payroll,-20400
+2026-03-05,Outflow,Cloud Hosting,Infrastructure,Compute and storage,-4100
+2026-03-06,Revenue,SMB Subscription,Recurring Revenue,Renewals,14300
+2026-03-08,Outflow,Performance Marketing,Growth,Launch campaign,-16000
+2026-03-10,Revenue,Professional Services,Services,Advisory bundle,11800
+2026-03-12,Outflow,Customer Success Tools,Operations,Tooling bundle,-5200
+2026-03-15,Revenue,Partner Channel,Channel,Regional partner deal,19200
+2026-03-17,Outflow,Contractors,People,Analytics project,-7100
+2026-03-20,Revenue,Usage Overage,Variable Revenue,API spike,9700
+2026-03-22,Outflow,Travel,Sales,Board and customer travel,-6900
+2026-03-24,Outflow,Legal and Audit,G&A,Fundraising legal work,-12800
+2026-03-26,Revenue,Enterprise Subscription,Recurring Revenue,Expansion order,28000
+2026-03-27,Outflow,Payment Processing,G&A,Gateway fees,-2900
+2026-03-29,Outflow,Office Costs,G&A,Workspace refresh,-3100

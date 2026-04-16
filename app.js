@@ -5,6 +5,7 @@
     visibleRows: [],
     columns: [],
     grain: "daily",
+    dateFormat: "auto",
     filters: {
       startDate: "",
       endDate: "",
@@ -67,6 +68,8 @@
     description: document.getElementById("descriptionColumn")
   };
 
+  const dateFormatSelect = document.getElementById("dateFormatSelect");
+
   const aliasInputs = {
     revenue: document.getElementById("revenueAliases"),
     outflow: document.getElementById("outflowAliases")
@@ -88,8 +91,15 @@
     els.resetFiltersBtn.addEventListener("click", resetAllFilters);
     els.clearHeadFilterBtn.addEventListener("click", () => {
       state.filters.selectedHeads.clear();
-      render();
+        render();
+      });
     });
+
+    dateFormatSelect.addEventListener("change", () => {
+      state.dateFormat = dateFormatSelect.value;
+      if (state.rawRows.length) applyCurrentMapping();
+    });
+
 
     document.addEventListener("keydown", (event) => {
       if (event.target.tagName === "INPUT" || event.target.tagName === "SELECT" || event.target.tagName === "TEXTAREA") return;
@@ -207,6 +217,8 @@
 
     state.rawRows = rows;
     state.columns = Object.keys(rows[0]);
+    state.dateFormat = "auto";
+    dateFormatSelect.value = "auto";
     setMappingDefaults();
     populateMappingControls();
     els.fileStatus.textContent = `Loaded ${fileName} with ${rows.length.toLocaleString()} rows. Review the mapping and click Apply Mapping.`;
@@ -223,6 +235,12 @@
     if (missing.length) {
       renderEmptyState(`Map the required columns first: ${missing.join(", ")}.`);
       return;
+    }
+
+    if (state.dateFormat === "auto") {
+      const detected = detectDateFormat(state.rawRows, state.mapping.date);
+      dateFormatSelect.value = detected;
+      state.dateFormat = detected;
     }
 
     let skipped = 0;
@@ -917,6 +935,26 @@
     return rows.slice(1).map((values) => Object.fromEntries(headers.map((header, index) => [header, (values[index] || "").trim()])));
   }
 
+  function detectDateFormat(rawRows, dateColumnName) {
+    if (!dateColumnName) return "ymd";
+    let dmyScore = 0;
+    let mdyScore = 0;
+    const sample = rawRows.slice(0, 50);
+    for (const row of sample) {
+      const value = String(row[dateColumnName] || "").trim();
+      const match = value.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+      if (!match) continue;
+      const [, part1, part2] = match;
+      const p1 = Number(part1);
+      const p2 = Number(part2);
+      if (p1 > 12 && p2 <= 12) dmyScore += 1;
+      else if (p2 > 12 && p1 <= 12) mdyScore += 1;
+    }
+    if (dmyScore > mdyScore) return "dmy";
+    if (mdyScore > dmyScore) return "mdy";
+    return "dmy";
+  }
+
   function parseDate(value) {
     if (!value) return null;
     const date = new Date(value);
@@ -925,6 +963,8 @@
     if (!match) return null;
     const [, part1, part2, part3] = match;
     const year = part3.length === 2 ? Number(`20${part3}`) : Number(part3);
+    const fmt = state.dateFormat === "auto" ? "dmy" : state.dateFormat;
+    if (fmt === "mdy") return new Date(year, Number(part1) - 1, Number(part2));
     return new Date(year, Number(part2) - 1, Number(part1));
   }
 

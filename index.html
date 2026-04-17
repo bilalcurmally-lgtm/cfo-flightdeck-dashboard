@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CFO Flight Deck</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -73,6 +76,35 @@
           </label>
         </div>
         <button id="applyMappingBtn" class="primary-button" type="button">Apply Mapping</button>
+        <div class="mapping-grid" style="margin-top:12px">
+          <label><span>Currency</span><select id="currencySelect">
+            <option value="USD">USD ($)</option>
+            <option value="EUR">EUR (€)</option>
+            <option value="GBP">GBP (£)</option>
+            <option value="JPY">JPY (¥)</option>
+            <option value="INR">INR (₹)</option>
+            <option value="PKR">PKR (₨)</option>
+            <option value="CAD">CAD (C$)</option>
+            <option value="AUD">AUD (A$)</option>
+            <option value="CNY">CNY (¥)</option>
+            <option value="CHF">CHF (Fr)</option>
+            <option value="SGD">SGD (S$)</option>
+            <option value="AED">AED (د.إ)</option>
+            <option value="SAR">SAR (﷼)</option>
+            <option value="ZAR">ZAR (R)</option>
+            <option value="BRL">BRL (R$)</option>
+            <option value="MXN">MXN ($)</option>
+            <option value="KRW">KRW (₩)</option>
+            <option value="TRY">TRY (₺)</option>
+            <option value="SEK">SEK (kr)</option>
+            <option value="NOK">NOK (kr)</option>
+            <option value="BDT">BDT (৳)</option>
+            <option value="NGN">NGN (₦)</option>
+            <option value="EGP">EGP (E£)</option>
+            <option value="THB">THB (฿)</option>
+            <option value="IDR">IDR (Rp)</option>
+          </select></label>
+        </div>
         <p class="footnote">If Flow Type is blank, positive values are treated as revenue and negative values as outflows.</p>
       </section>
 
@@ -208,6 +240,6 @@
     </main>
   </div>
 
-  <script src="./app.js"></script>
+  <script type="module" src="./src/main.js"></script>
 </body>
 </html>

@@ -31,12 +31,15 @@ export async function onFileSelected(event) {
   event.target.value = "";
 }
 
-export function ingestCsvText(text, fileName) {
+export function ingestCsvText(text, fileName, options = {}) {
   const rows = parseCsv(text);
-  ingestRows(rows, fileName, { persist: true });
+  ingestRows(rows, fileName, {
+    persist: options.persist ?? true,
+    resetFilters: options.resetFilters ?? true
+  });
 }
 
-export function ingestRows(rows, fileName, { persist = false } = {}) {
+export function ingestRows(rows, fileName, { persist = false, resetFilters = true } = {}) {
   if (!rows.length) {
     state.rawRows = [];
     state.records = [];
@@ -75,6 +78,7 @@ export function ingestRows(rows, fileName, { persist = false } = {}) {
   dateFormatSelect.value = "auto";
   setMappingDefaults();
   populateMappingControls();
+  if (resetFilters) resetDatasetFilters();
   els.fileStatus.textContent = `Loaded ${fileName} with ${rows.length.toLocaleString()} rows. Mapping applied automatically.`;
   applyCurrentMapping();
 
@@ -87,6 +91,25 @@ export function ingestRows(rows, fileName, { persist = false } = {}) {
       state.dataQuality.persistedDataset = false;
     });
   }
+}
+
+function resetDatasetFilters() {
+  state.filters = {
+    startDate: "",
+    endDate: "",
+    search: "",
+    flows: new Set(["revenue", "outflow"]),
+    selectedHeads: new Set(),
+    headSearch: "",
+    focusedPeriod: "",
+    focusedHead: ""
+  };
+  els.startDate.value = "";
+  els.endDate.value = "";
+  els.searchInput.value = "";
+  els.topbarSearchInput.value = "";
+  els.topbarPeriodSelect.value = "All periods";
+  els.headSearch.value = "";
 }
 
 export function applyCurrentMapping() {

@@ -20,9 +20,14 @@ async function loadApp() {
     disconnect() {}
   });
   await import("../../main.js");
-  await Promise.resolve();
-  await Promise.resolve();
+  await settle();
   return import("../../io/file.js");
+}
+
+async function settle() {
+  await Promise.resolve();
+  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 describe("app integration", () => {
@@ -42,6 +47,16 @@ describe("app integration", () => {
     expect(document.getElementById("detailBody").textContent).toContain("Enterprise Subscription");
     expect(document.getElementById("dataQualityList").textContent).toContain("Rows loaded");
     expect(document.getElementById("dataQualityList").textContent).toContain("43");
+  });
+
+  it("loads the dynamic review sample automatically for first-time visitors", async () => {
+    await loadApp();
+    await settle();
+
+    expect(document.getElementById("fileStatus").textContent).toContain("Loaded first-run demo sample");
+    expect(document.getElementById("totalRevenue").textContent).not.toBe("-");
+    expect(document.getElementById("detailBody").textContent).toContain("Enterprise Subscription");
+    expect(document.getElementById("dataQualityList").textContent).toContain("sample-dynamic-review.csv");
   });
 
   it("surfaces missing required mapping instead of rendering misleading totals", async () => {

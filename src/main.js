@@ -179,7 +179,7 @@ function wireEvents() {
       els.fileStatus.textContent = "Could not restore that dataset.";
       return;
     }
-    ingestRows(rows, selected?.dataset.fileName || "restored dataset", { persist: false });
+    ingestRows(rows, selected?.dataset.fileName || "restored dataset", { persist: false, resetFilters: true });
     state.dataQuality.persistedDataset = true;
     render();
   });
@@ -507,7 +507,7 @@ async function restoreLatestDataset() {
   if (!latest) return false;
   const rows = await loadDataset(latest.id);
   if (!rows) return false;
-  ingestRows(rows, latest.fileName, { persist: false });
+  ingestRows(rows, latest.fileName, { persist: false, resetFilters: false });
   state.dataQuality.persistedDataset = true;
   render();
   return true;
@@ -536,8 +536,7 @@ async function init() {
   restoreUrlState();
   const restoredDataset = await restoreLatestDataset();
   if (!restoredDataset) {
-    renderEmptyState();
-    renderDataQuality();
+    await loadSampleData({ persist: false, statusPrefix: "Loaded first-run demo sample" });
   }
 }
 

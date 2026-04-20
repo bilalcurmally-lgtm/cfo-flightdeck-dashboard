@@ -1,0 +1,91 @@
+Date,Flow Type,Account Head,Parent Head,Description,Amount
+2026-01-05,Revenue,Enterprise Subscription,Recurring Revenue,Annual enterprise renewal - Atlas Foods,62000
+2026-01-06,Revenue,SMB Subscription,Recurring Revenue,January SMB batch,14200
+2026-01-07,Outflow,Payroll,People,January payroll run,-36500
+2026-01-08,Outflow,Cloud Hosting,Infrastructure,Cloud platform reserved capacity,-8200
+2026-01-09,Outflow,Performance Marketing,Growth,Campaign restart,-6400
+2026-01-10,Outflow,Travel,Sales,Client workshop travel,-2100
+2026-01-12,Revenue,Partner Channel,Channel,Partner reseller settlement,18500
+2026-01-13,Revenue,Usage Overage,Variable Revenue,Usage overage invoice batch,9400
+2026-01-14,Outflow,Contractors,People,Product contractor sprint,-12200
+2026-01-15,Outflow,Legal and Audit,G&A,Contract review retainer,-4800
+2026-01-16,Outflow,Cloud Hosting,Infrastructure,Storage burst cleanup,-3600
+2026-01-17,Revenue,Implementation Fees,Services,Onboarding milestone - Northstar,15800
+2026-01-19,Revenue,SMB Subscription,Recurring Revenue,Mid-month renewals,11800
+2026-01-20,Outflow,Payroll,People,Commission payroll adjustment,-9200
+2026-01-21,Outflow,Performance Marketing,Growth,Pipeline test spend,-16400
+2026-01-22,Outflow,Office Costs,G&A,Workspace and utilities,-5200
+2026-01-23,Revenue,Enterprise Subscription,Recurring Revenue,Quarterly subscription - Helio Labs,41000
+2026-01-24,Outflow,Customer Success Tools,Operations,Support tooling renewal,-3900
+2026-01-26,Revenue,Implementation Fees,Services,Go-live milestone - Dune Retail,26400
+2026-01-27,Revenue,Usage Overage,Variable Revenue,API volume overage,13600
+2026-01-28,Outflow,Contractors,People,Data migration contractor,-7400
+2026-01-29,Outflow,Cloud Hosting,Infrastructure,Compute overage,-6100
+2026-01-30,Outflow,Tax,Compliance,Sales tax prepayment,-22500
+2026-01-31,Revenue,Partner Channel,Channel,Channel true-up,7200
+2026-02-02,Revenue,Enterprise Subscription,Recurring Revenue,Annual enterprise renewal - Meridian Bank,79000
+2026-02-03,Outflow,Payroll,People,February payroll run,-38200
+2026-02-04,Outflow,Legal and Audit,G&A,Audit prep invoice,-9800
+2026-02-05,Outflow,Performance Marketing,Growth,Event sponsorship,-21400
+2026-02-06,Revenue,SMB Subscription,Recurring Revenue,February SMB batch,15100
+2026-02-07,Outflow,Cloud Hosting,Infrastructure,Cloud platform invoice,-8600
+2026-02-09,Revenue,Usage Overage,Variable Revenue,Usage overage invoice batch,16400
+2026-02-10,Revenue,Implementation Fees,Services,Professional services milestone,9800
+2026-02-11,Outflow,Contractors,People,Security review contractor,-6900
+2026-02-12,Outflow,Travel,Sales,Dubai reviewer trip planning,-5200
+2026-02-13,Outflow,Customer Success Tools,Operations,Customer health platform,-4300
+2026-02-14,Revenue,Partner Channel,Channel,Partner payout,12600
+2026-02-16,Revenue,Enterprise Subscription,Recurring Revenue,Expansion order - Blue Harbor,53000
+2026-02-17,Outflow,Payroll,People,Payroll tax and benefits,-18800
+2026-02-18,Outflow,Cloud Hosting,Infrastructure,AI workload spike,-14200
+2026-02-19,Outflow,Office Costs,G&A,Equipment purchases,-7600
+2026-02-20,Revenue,SMB Subscription,Recurring Revenue,Late SMB renewals,8800
+2026-02-21,Outflow,Performance Marketing,Growth,Paid search experiment,-9500
+2026-02-23,Revenue,Implementation Fees,Services,Onboarding milestone - Copperline,21800
+2026-02-24,Revenue,Usage Overage,Variable Revenue,Usage overage invoice batch,7200
+2026-02-25,Outflow,Contractors,People,Integrations contractor,-10300
+2026-02-26,Outflow,Tax,Compliance,Quarterly tax reserve,-31800
+2026-02-27,Outflow,Legal and Audit,G&A,Legal diligence package,-6400
+2026-02-28,Revenue,Partner Channel,Channel,Partner rev share,5400
+2026-03-02,Revenue,Enterprise Subscription,Recurring Revenue,Annual renewal - Summit Group,68500
+2026-03-03,Revenue,SMB Subscription,Recurring Revenue,March SMB batch,17400
+2026-03-04,Outflow,Payroll,People,March payroll run,-39400
+2026-03-05,Outflow,Cloud Hosting,Infrastructure,Cloud platform invoice,-9100
+2026-03-06,Revenue,Implementation Fees,Services,Implementation acceptance,12800
+2026-03-07,Outflow,Performance Marketing,Growth,Launch campaign,-12600
+2026-03-09,Revenue,Usage Overage,Variable Revenue,Usage overage invoice batch,22400
+2026-03-10,Outflow,Contractors,People,Contractor bench payment,-5400
+2026-03-11,Outflow,Travel,Sales,Conference travel,-8800
+2026-03-12,Revenue,Partner Channel,Channel,Distributor close,19200
+2026-03-13,Outflow,Customer Success Tools,Operations,CS automation suite,-5700
+2026-03-14,Outflow,Office Costs,G&A,Office refresh,-4200
+2026-03-16,Revenue,Enterprise Subscription,Recurring Revenue,Enterprise prepay - Kestrel,94000
+2026-03-17,Outflow,Payroll,People,Bonus payroll,-45200
+2026-03-18,Outflow,Tax,Compliance,Withholding settlement,-24400
+2026-03-19,Revenue,SMB Subscription,Recurring Revenue,SMB renewal sweep,9800
+2026-03-20,Outflow,Cloud Hosting,Infrastructure,Data warehouse catch-up,-11800
+2026-03-21,Outflow,Performance Marketing,Growth,Pipeline acceleration,-16400
+2026-03-23,Revenue,Implementation Fees,Services,Training services milestone,31200
+2026-03-24,Revenue,Usage Overage,Variable Revenue,Usage overage invoice batch,11900
+2026-03-25,Outflow,Contractors,People,Implementation contractor,-9700
+2026-03-26,Outflow,Legal and Audit,G&A,Audit fieldwork,-13200
+2026-03-27,Revenue,Partner Channel,Channel,Partner settlement,8300
+2026-03-28,Outflow,Cloud Hosting,Infrastructure,Compute reservation,-7400
+2026-03-30,Revenue,Enterprise Subscription,Recurring Revenue,Expansion invoice - Acme Medical,56000
+2026-03-31,Outflow,Payroll,People,Month-end payroll,-33100
+2026-04-01,Revenue,SMB Subscription,Recurring Revenue,April SMB batch,16800
+2026-04-02,Outflow,Performance Marketing,Growth,April channel spend,-7200
+2026-04-03,Outflow,Customer Success Tools,Operations,NPS tooling renewal,-3400
+2026-04-04,Revenue,Usage Overage,Variable Revenue,Usage overage invoice batch,18400
+2026-04-06,Revenue,Implementation Fees,Services,Customer launch invoice,24200
+2026-04-07,Outflow,Cloud Hosting,Infrastructure,Cloud platform invoice,-8800
+2026-04-08,Outflow,Contractors,People,Finance cleanup contractor,-5800
+2026-04-09,Revenue,Partner Channel,Channel,Partner payout,14300
+2026-04-10,Outflow,Legal and Audit,G&A,Reviewer legal pack,-3900
+2026-04-11,Outflow,Travel,Sales,Client travel,-2600
+2026-04-13,Revenue,Enterprise Subscription,Recurring Revenue,Quarterly subscription - Gulf Capital,73500
+2026-04-14,Revenue,SMB Subscription,Recurring Revenue,SMB renewal sweep,10900
+2026-04-15,Outflow,Payroll,People,Mid-month payroll and benefits,-27600
+2026-04-16,Outflow,Tax,Compliance,VAT reserve,-18600
+2026-04-17,Outflow,Performance Marketing,Growth,Investor banking review push,-11200
+2026-04-18,Revenue,Usage Overage,Variable Revenue,API volume overage,15400

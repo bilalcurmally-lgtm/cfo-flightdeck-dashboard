@@ -1,36 +1,49 @@
 import { state } from "./store/state.js";
-import { els, dateFormatSelect, grainButtons, flowButtons, currencySelect } from "./store/elements.js";
+import { els, dateFormatSelect, grainButtons, flowButtons, currencySelect, currencySearchInput } from "./store/elements.js";
 import { registerRender } from "./store/renderer.js";
-import { onFileSelected, ingestCsvText, applyCurrentMapping } from "./io/file.js";
+import { onFileSelected, ingestRows, applyCurrentMapping } from "./io/file.js";
 import { loadSampleData } from "./io/fetch.js";
-import { filterRecords, buildPeriodSummary, buildHeadSummary } from "./filter/filter.js";
+import { computeFinanceView, serializeFinanceFilters } from "./finance/finance-view.js";
+import { createFinanceWorkerClient } from "./worker/finance-worker-client.js";
+import { buildCashForecast, createEventId, normalizeManualEvents } from "./finance/cash-forecast.js";
+
 import { renderBreadcrumbs } from "./filter/drill.js";
 import { renderKpis } from "./render/kpi.js";
+import { renderSaasControls } from "./render/saas.js";
 import { renderTrendChart, renderHeadChart } from "./render/chart.js";
 import { renderPeriodMatrix } from "./render/matrix.js";
 import { renderInsights, renderFocus, renderPressureList } from "./render/insight.js";
 import { renderDetailTable, renderHeadChecklist, renderEmptyState } from "./render/table.js";
+import { renderCashForecast, renderForecastEvents } from "./render/cash-forecast.js";
+import { renderDataQuality } from "./render/data-quality.js";
+import { buildTickerItems, mountTicker } from "./render/ticker.js";
+import { renderFlowDiagram } from "./render/flow-diagram.js";
 import { exportVisibleRows } from "./render/export.js";
 import { saveState, loadState } from "./store/local-storage.js";
 import { setCurrency } from "./config/currency.js";
 import { debounce } from "./core/debounce.js";
 import { readUrlState, writeUrlState } from "./store/url-state.js";
 import { MAX_FILE_SIZE, VALID_EXTENSIONS, VALID_TYPES } from "./io/constants.js";
+import { getDatasetCatalog, loadDataset } from "./store/dataset-store.js";
+import { escapeHtml } from "./core/escape.js";
+import { initAppGate } from "./auth/gate.js";
+import { getCurrencyOptions } from "./config/currency-options.js";
 
 state.detailRowCap = 250;
 
-let lastFilterKey = "";
-let cachedPeriodSummary = null;
-let cachedHeadSummary = null;
+const financeWorkerClient = createFinanceWorkerClient();
+let renderSequence = 0;
 
-function getFilterKey(filtered) {
-  return `${filtered.length}:${state.grain}:${state.filters.focusedPeriod}:${state.filters.focusedHead}`;
-}
-
-function render() {
+async function render() {
+  const sequence = renderSequence + 1;
+  renderSequence = sequence;
   state.detailRowCap = 250;
   if (!state.records.length) {
+    state.visibleRows = [];
+    state.cashForecast.latest = null;
     renderEmptyState();
+    renderDataQuality();
+    renderForecastPanels();
     saveState(state);
     return;
   }
@@ -38,24 +51,45 @@ function render() {
   syncFlowButtons();
   renderHeadChecklist();
 
-  const filtered = filterRecords(state.records, state.filters, state.grain);
+  const payload = {
+    records: state.records,
+    filters: serializeFinanceFilters(state.filters),
+    grain: state.grain,
+    currentBankBalance: state.currentBankBalance
+  };
+
+  let view;
+  try {
+    view = await financeWorkerClient.compute(payload);
+  } catch (error) {
+    console.warn("[CFO Flight Deck] Finance worker unavailable; using main-thread calculation.", error);
+    view = computeFinanceView(payload);
+  }
+
+  if (sequence !== renderSequence) return;
+
+  const filtered = view.filtered;
   state.visibleRows = filtered;
   renderBreadcrumbs();
 
   if (!filtered.length) {
     renderEmptyState("No rows match the current filters.");
+    renderDataQuality();
     saveState(state);
     return;
   }
 
-  const key = getFilterKey(filtered);
-  if (key !== lastFilterKey) {
-    cachedPeriodSummary = buildPeriodSummary(filtered, state.grain);
-    cachedHeadSummary = buildHeadSummary(filtered);
-    lastFilterKey = key;
-  }
-  const periodSummary = cachedPeriodSummary;
-  const headSummary = cachedHeadSummary;
+  const periodSummary = view.periodSummary;
+  const headSummary = view.headSummary;
+  const cashHealth = view.cashHealth;
+  const cashForecast = buildCashForecast({
+    records: state.records,
+    currentBankBalance: state.currentBankBalance,
+    balanceAsOf: state.balanceAsOf,
+    manualEvents: state.cashForecast.manualEvents,
+    baselineWeeks: state.cashForecast.baselineWeeks
+  });
+  state.cashForecast.latest = cashForecast;
 
   const safeRender = (name, fn, target) => {
     try { fn(); } catch (error) {
@@ -64,16 +98,32 @@ function render() {
     }
   };
 
-  safeRender("kpis", () => renderKpis(periodSummary));
-  safeRender("insights", () => renderInsights(periodSummary, headSummary, filtered), els.insightList);
+  safeRender("kpis", () => renderKpis(periodSummary, cashHealth));
+  safeRender("ticker", () => {
+    const items = buildTickerItems({ periodSummary, cashHealth, currency: state.currency });
+    mountTicker(els.tickerRow, items);
+    if (els.sysStatusLabel) els.sysStatusLabel.textContent = "Systems nominal";
+    if (els.sysStatusMeta) els.sysStatusMeta.textContent = `Flight Deck · ${state.records.length.toLocaleString()} rows loaded`;
+  });
+  safeRender("saasControls", () => renderSaasControls(periodSummary, headSummary, filtered, cashHealth), els.saasControls);
+  safeRender("cashForecast", () => renderCashForecast(cashForecast, els.cashForecastPanel), els.cashForecastPanel);
+  safeRender("forecastEvents", renderForecastPanels, els.forecastEventsList);
+  safeRender("insights", () => renderInsights(periodSummary, headSummary, filtered, cashHealth, cashForecast), els.insightList);
+  safeRender("flowDiagram", () => renderFlowDiagram(headSummary, els.flowDiagram, state.currency), els.flowDiagram);
   safeRender("focus", () => renderFocus(filtered, headSummary), els.focusStats);
   safeRender("trendChart", () => renderTrendChart(periodSummary), els.trendChart);
   safeRender("headChart", () => renderHeadChart(headSummary), els.headChart);
   safeRender("periodMatrix", () => renderPeriodMatrix(periodSummary), els.periodMatrix);
   safeRender("pressureList", () => renderPressureList(headSummary), els.pressureList);
   safeRender("detailTable", () => renderDetailTable(filtered));
+  safeRender("dataQuality", renderDataQuality, els.dataQualityList);
   saveState(state);
   writeUrlState(state);
+}
+
+function renderForecastPanels() {
+  renderForecastEvents(state.cashForecast.manualEvents, els.forecastEventsList);
+  renderCashForecast(state.cashForecast.latest, els.cashForecastPanel);
 }
 
 function syncFlowButtons() {
@@ -96,13 +146,43 @@ function resetAllFilters() {
   els.startDate.value = state.filters.startDate;
   els.endDate.value = state.filters.endDate;
   els.searchInput.value = "";
+  els.topbarSearchInput.value = "";
+  els.topbarPeriodSelect.value = "All periods";
   els.headSearch.value = "";
   render();
 }
 
 function wireEvents() {
   els.csvFile.addEventListener("change", onFileSelected);
+  els.currentBankBalance.addEventListener("input", () => {
+    state.currentBankBalance = parseFloat(els.currentBankBalance.value) || 0;
+    debouncedRender();
+  });
+  els.balanceAsOf.addEventListener("change", () => {
+    state.balanceAsOf = els.balanceAsOf.value;
+    debouncedRender();
+  });
+  els.addForecastEventBtn.addEventListener("click", addForecastEvent);
+  els.forecastEventsList.addEventListener("click", (event) => {
+    const id = event.target.dataset.deleteForecastEvent;
+    if (!id) return;
+    state.cashForecast.manualEvents = state.cashForecast.manualEvents.filter((item) => item.id !== id);
+    render();
+  });
   els.loadSampleBtn.addEventListener("click", loadSampleData);
+  els.loadRecentDatasetBtn.addEventListener("click", async () => {
+    const id = els.recentDatasetSelect.value;
+    if (!id) return;
+    const rows = await loadDataset(id);
+    const selected = els.recentDatasetSelect.selectedOptions[0];
+    if (!rows) {
+      els.fileStatus.textContent = "Could not restore that dataset.";
+      return;
+    }
+    ingestRows(rows, selected?.dataset.fileName || "restored dataset", { persist: false });
+    state.dataQuality.persistedDataset = true;
+    render();
+  });
   els.applyMappingBtn.addEventListener("click", applyCurrentMapping);
   els.exportVisibleBtn.addEventListener("click", exportVisibleRows);
   els.resetFiltersBtn.addEventListener("click", resetAllFilters);
@@ -140,9 +220,24 @@ function wireEvents() {
   });
 
   currencySelect.addEventListener("change", () => {
+    state.currency = currencySelect.value;
     setCurrency(currencySelect.value);
+    syncCurrencySearchLabel();
     render();
   });
+
+  currencySearchInput.addEventListener("input", () => {
+    filterCurrencyOptions(currencySearchInput.value);
+    const exact = [...currencySelect.options].find((option) => option.value.toLowerCase() === currencySearchInput.value.trim().toLowerCase());
+    if (exact && exact.value !== currencySelect.value) {
+      currencySelect.value = exact.value;
+      state.currency = exact.value;
+      setCurrency(exact.value);
+      render();
+    }
+  });
+
+  window.addEventListener("datasets:changed", refreshRecentDatasetControls);
 
   flowButtons.forEach((button) => {
     button.addEventListener("click", () => {
@@ -165,6 +260,9 @@ function wireEvents() {
       state.filters.endDate = els.endDate.value;
       state.filters.search = els.searchInput.value.trim().toLowerCase();
       state.filters.headSearch = els.headSearch.value.trim().toLowerCase();
+      if (input === els.searchInput) {
+        els.topbarSearchInput.value = els.searchInput.value;
+      }
       const inverted = state.filters.startDate && state.filters.endDate && state.filters.startDate > state.filters.endDate;
       els.dateRangeWarn.hidden = !inverted;
       if (inverted) {
@@ -176,6 +274,76 @@ function wireEvents() {
       }
       debouncedRender();
     });
+  });
+
+  els.topbarSearchInput.addEventListener("input", () => {
+    state.filters.search = els.topbarSearchInput.value.trim().toLowerCase();
+    if (els.searchInput) els.searchInput.value = els.topbarSearchInput.value;
+    debouncedRender();
+  });
+
+  els.topbarPeriodSelect.addEventListener("change", () => {
+    const preset = els.topbarPeriodSelect.value;
+    const today = new Date();
+    const year = today.getFullYear();
+
+    switch (preset) {
+      case "Q1 26":
+        state.filters.startDate = "2026-01-01";
+        state.filters.endDate = "2026-03-31";
+        break;
+      case "Q4 25":
+        state.filters.startDate = "2025-10-01";
+        state.filters.endDate = "2025-12-31";
+        break;
+      case "Last 30D":
+        const start = new Date(today);
+        start.setDate(start.getDate() - 30);
+        state.filters.startDate = start.toISOString().slice(0, 10);
+        state.filters.endDate = today.toISOString().slice(0, 10);
+        break;
+      case "YTD":
+        state.filters.startDate = `${year}-01-01`;
+        state.filters.endDate = today.toISOString().slice(0, 10);
+        break;
+      default:
+        state.filters.startDate = state.records[0] ? state.records[0].dateISO : "";
+        state.filters.endDate = state.records[state.records.length - 1] ? state.records[state.records.length - 1].dateISO : "";
+    }
+    els.startDate.value = state.filters.startDate;
+    els.endDate.value = state.filters.endDate;
+    debouncedRender();
+  });
+
+  const setControlDrawerOpen = (isOpen) => {
+    els.controlDrawer.classList.toggle("is-open", isOpen);
+    els.controlDrawer.setAttribute("aria-hidden", String(!isOpen));
+    els.toggleControlDrawer.setAttribute("aria-expanded", String(isOpen));
+    els.railSettings?.classList.toggle("active", isOpen);
+  };
+  const toggleControlDrawer = () => {
+    setControlDrawerOpen(!els.controlDrawer.classList.contains("is-open"));
+  };
+
+  els.toggleControlDrawer.addEventListener("click", toggleControlDrawer);
+  els.railSettings?.addEventListener("click", toggleControlDrawer);
+  els.closeControlDrawer?.addEventListener("click", () => setControlDrawerOpen(false));
+
+  document.querySelectorAll("[data-scroll-target]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const target = document.getElementById(button.dataset.scrollTarget);
+      if (!target) return;
+      document.querySelectorAll("[data-scroll-target]").forEach((item) => {
+        item.classList.toggle("active", item === button);
+      });
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && els.controlDrawer.classList.contains("is-open")) {
+      setControlDrawerOpen(false);
+    }
   });
 
   document.body.addEventListener("dragover", (event) => {
@@ -205,9 +373,67 @@ function wireEvents() {
   });
 }
 
+function syncCurrencySearchLabel() {
+  if (!currencySearchInput || !currencySelect) return;
+  const selected = currencySelect.selectedOptions[0];
+  currencySearchInput.value = selected ? selected.textContent.trim() : currencySelect.value;
+  filterCurrencyOptions("");
+}
+
+function populateCurrencyOptions() {
+  if (!currencySelect) return;
+  const selected = state.currency || currencySelect.value || "USD";
+  currencySelect.innerHTML = getCurrencyOptions()
+    .map((option) => `<option value="${escapeHtml(option.code)}" data-search="${escapeHtml(option.search)}">${escapeHtml(option.label)}</option>`)
+    .join("");
+  currencySelect.value = selected;
+  if (!currencySelect.value) currencySelect.value = "USD";
+}
+
+function filterCurrencyOptions(query) {
+  if (!currencySelect) return;
+  const normalized = query.trim().toLowerCase();
+  [...currencySelect.options].forEach((option) => {
+    const haystack = `${option.value} ${option.textContent} ${option.dataset.search || ""}`.toLowerCase();
+    option.hidden = Boolean(normalized) && !haystack.includes(normalized);
+  });
+}
+
 function restorePersistedState() {
   const saved = loadState();
   if (!saved) return;
+  if (saved.currentBankBalance !== undefined) {
+    state.currentBankBalance = saved.currentBankBalance;
+    els.currentBankBalance.value = saved.currentBankBalance || "";
+  }
+  if (saved.balanceAsOf !== undefined) {
+    state.balanceAsOf = saved.balanceAsOf;
+    els.balanceAsOf.value = saved.balanceAsOf || "";
+  }
+  if (saved.aiBrief) {
+    state.aiBrief = {
+      ...state.aiBrief,
+      ...saved.aiBrief,
+      text: "",
+      status: "idle",
+      error: ""
+    };
+  }
+  if (saved.cashForecast) {
+    state.cashForecast = {
+      ...state.cashForecast,
+      ...saved.cashForecast,
+      manualEvents: normalizeManualEvents(saved.cashForecast.manualEvents || []),
+      latest: null
+    };
+    renderForecastPanels();
+  }
+  if (saved.currency) {
+    state.currency = saved.currency;
+    currencySelect.value = saved.currency;
+    setCurrency(saved.currency);
+  }
+  syncCurrencySearchLabel();
   if (saved.grain) {
     state.grain = saved.grain;
     grainButtons.forEach((item) => item.classList.toggle("is-active", item.dataset.grain === saved.grain));
@@ -228,11 +454,63 @@ function restorePersistedState() {
     els.startDate.value = state.filters.startDate;
     els.endDate.value = state.filters.endDate;
     els.searchInput.value = state.filters.search;
+    els.topbarSearchInput.value = state.filters.search;
     els.headSearch.value = state.filters.headSearch;
   }
   if (saved.mapping) {
     state.mapping = saved.mapping;
   }
+}
+
+function addForecastEvent() {
+  const event = normalizeManualEvents([{
+    id: createEventId(),
+    date: els.forecastEventDate.value,
+    flow: els.forecastEventFlow.value,
+    amount: els.forecastEventAmount.value,
+    label: els.forecastEventLabel.value
+  }])[0];
+
+  if (!event) {
+    els.forecastEventAmount.style.borderColor = "var(--danger)";
+    return;
+  }
+
+  els.forecastEventAmount.style.borderColor = "";
+  state.cashForecast.manualEvents = [...state.cashForecast.manualEvents, event]
+    .sort((a, b) => a.date.localeCompare(b.date));
+  els.forecastEventDate.value = "";
+  els.forecastEventAmount.value = "";
+  els.forecastEventLabel.value = "";
+  render();
+}
+
+async function refreshRecentDatasetControls() {
+  const catalog = await getDatasetCatalog();
+  if (!catalog.length) {
+    els.recentDatasetSelect.innerHTML = '<option value="">No saved datasets</option>';
+    els.loadRecentDatasetBtn.disabled = true;
+    return catalog;
+  }
+
+  els.recentDatasetSelect.innerHTML = catalog.map((item) => {
+    const label = `${item.fileName} (${item.rowCount.toLocaleString()} rows)`;
+    return `<option value="${escapeHtml(item.id)}" data-file-name="${escapeHtml(item.fileName)}">${escapeHtml(label)}</option>`;
+  }).join("");
+  els.loadRecentDatasetBtn.disabled = false;
+  return catalog;
+}
+
+async function restoreLatestDataset() {
+  const catalog = await refreshRecentDatasetControls();
+  const latest = catalog[0];
+  if (!latest) return false;
+  const rows = await loadDataset(latest.id);
+  if (!rows) return false;
+  ingestRows(rows, latest.fileName, { persist: false });
+  state.dataQuality.persistedDataset = true;
+  render();
+  return true;
 }
 
 function restoreUrlState() {
@@ -248,12 +526,19 @@ function restoreUrlState() {
   if (urlState.flows) state.filters.flows = new Set(urlState.flows);
 }
 
-function init() {
+async function init() {
+  initAppGate();
+  populateCurrencyOptions();
   registerRender(render);
   wireEvents();
+  syncCurrencySearchLabel();
   restorePersistedState();
   restoreUrlState();
-  renderEmptyState();
+  const restoredDataset = await restoreLatestDataset();
+  if (!restoredDataset) {
+    renderEmptyState();
+    renderDataQuality();
+  }
 }
 
 init();

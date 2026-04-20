@@ -8,6 +8,7 @@ import { escapeHtml } from "../core/escape.js";
 import { getRevenueAliases, getOutflowAliases } from "../config/aliases.js";
 import { renderEmptyState } from "../render/table.js";
 import { MAX_FILE_SIZE, VALID_EXTENSIONS, VALID_TYPES } from "./constants.js";
+import { saveDataset } from "../store/dataset-store.js";
 
 export async function onFileSelected(event) {
   const file = event.target.files[0];
@@ -27,26 +28,65 @@ export async function onFileSelected(event) {
   } catch (error) {
     els.fileStatus.textContent = `Could not read file: ${error.message}`;
   }
+  event.target.value = "";
 }
 
 export function ingestCsvText(text, fileName) {
   const rows = parseCsv(text);
+  ingestRows(rows, fileName, { persist: true });
+}
+
+export function ingestRows(rows, fileName, { persist = false } = {}) {
   if (!rows.length) {
     state.rawRows = [];
     state.records = [];
     state.columns = [];
+    state.dataQuality = {
+      ...state.dataQuality,
+      fileName: fileName || "",
+      loadedRows: 0,
+      mappedRows: 0,
+      skippedRows: 0,
+      skippedBadDateOrAmount: 0,
+      detectedDateFormat: "auto",
+      unmappedOptionalColumns: [],
+      unknownFlowLabels: [],
+      persistedDataset: false
+    };
     renderEmptyState("The CSV is empty or could not be parsed.");
     return;
   }
 
   state.rawRows = rows;
   state.columns = Object.keys(rows[0]);
+  state.dataQuality = {
+    ...state.dataQuality,
+    fileName: fileName || "dataset.csv",
+    loadedRows: rows.length,
+    mappedRows: 0,
+    skippedRows: 0,
+    skippedBadDateOrAmount: 0,
+    detectedDateFormat: "auto",
+    unmappedOptionalColumns: [],
+    unknownFlowLabels: [],
+    persistedDataset: false
+  };
   state.dateFormat = "auto";
   dateFormatSelect.value = "auto";
   setMappingDefaults();
   populateMappingControls();
-  els.fileStatus.textContent = `Loaded ${fileName} with ${rows.length.toLocaleString()} rows. Review the mapping and click Apply Mapping.`;
+  els.fileStatus.textContent = `Loaded ${fileName} with ${rows.length.toLocaleString()} rows. Mapping applied automatically.`;
   applyCurrentMapping();
+
+  if (persist) {
+    saveDataset(fileName, rows).then(() => {
+      state.dataQuality.persistedDataset = true;
+      window.dispatchEvent(new CustomEvent("datasets:changed"));
+      render();
+    }).catch(() => {
+      state.dataQuality.persistedDataset = false;
+    });
+  }
 }
 
 export function applyCurrentMapping() {
@@ -82,6 +122,17 @@ function applyCurrentMappingInner() {
   const revenueTokens = getRevenueAliases(aliasInputs.revenue);
   const outflowTokens = getOutflowAliases(aliasInputs.outflow);
 
+  const unknownFlowLabels = new Set();
+  if (state.mapping.type) {
+    state.rawRows.forEach((row) => {
+      const typeValue = String(row[state.mapping.type] || "").trim().toLowerCase();
+      if (!typeValue) return;
+      const knownRevenue = revenueTokens.some((token) => typeValue.includes(token));
+      const knownOutflow = outflowTokens.some((token) => typeValue.includes(token));
+      if (!knownRevenue && !knownOutflow) unknownFlowLabels.add(typeValue);
+    });
+  }
+
   let skipped = 0;
   const records = state.rawRows.map((row, index) => {
     const record = mapRowToRecord(row, index, state.mapping, revenueTokens, outflowTokens, state.dateFormat);
@@ -89,6 +140,16 @@ function applyCurrentMappingInner() {
     return record;
   }).filter(Boolean);
   state.records = records.sort((a, b) => a.date - b.date);
+  state.dataQuality = {
+    ...state.dataQuality,
+    loadedRows: state.rawRows.length,
+    mappedRows: records.length,
+    skippedRows: skipped,
+    skippedBadDateOrAmount: skipped,
+    detectedDateFormat: state.dateFormat,
+    unmappedOptionalColumns: ["type", "parent", "description"].filter((key) => !state.mapping[key]),
+    unknownFlowLabels: [...unknownFlowLabels].slice(0, 6)
+  };
 
   if (!state.records.length) {
     renderEmptyState("No valid records were produced from the selected mapping.");

@@ -5,8 +5,10 @@ import { humanPeriodLabel } from "../core/date.js";
 import { groupBy, shareOf } from "../core/format.js";
 import { detectOutflowAnomaly } from "../filter/filter.js";
 import { formatCurrency } from "../config/currency.js";
+import { detectLargeTransactions } from "../finance/anomaly.js";
+import { staggerChildren } from "./motion.js";
 
-export function renderInsights(periodSummary, headSummary, filtered) {
+export function renderInsights(periodSummary, headSummary, filtered, cashHealth, cashForecast) {
   const items = [];
   const topRevenueHead = [...headSummary].sort((a, b) => b.revenue - a.revenue)[0];
   const topOutflowHead = [...headSummary].sort((a, b) => b.outflow - a.outflow)[0];
@@ -16,7 +18,33 @@ export function renderInsights(periodSummary, headSummary, filtered) {
   const topThreeOutflows = [...headSummary].sort((a, b) => b.outflow - a.outflow).slice(0, 3).reduce((sum, item) => sum + item.outflow, 0);
   const concentration = outflowTotal ? (topThreeOutflows / outflowTotal) * 100 : 0;
   const anomaly = detectOutflowAnomaly(periodSummary);
+  const largeTransactions = detectLargeTransactions(filtered);
+  const recurringRevenue = filtered
+    .filter((row) => row.flow === "revenue" && isRecurringRow(row))
+    .reduce((sum, row) => sum + row.amount, 0);
+  const revenueTotal = headSummary.reduce((sum, item) => sum + item.revenue, 0);
+  const recurringShare = revenueTotal ? (recurringRevenue / revenueTotal) * 100 : 0;
 
+  if (state.dataQuality.skippedRows > 0 || state.dataQuality.unknownFlowLabels.length > 0) {
+    const unknown = state.dataQuality.unknownFlowLabels.length
+      ? ` Unknown flow labels: ${state.dataQuality.unknownFlowLabels.join(", ")}.`
+      : "";
+    items.push({
+      level: "warning",
+      title: "Data quality needs review",
+      body: `${state.dataQuality.skippedRows.toLocaleString()} rows were skipped.${unknown}`
+    });
+  }
+  if (cashForecast) {
+    items.push(cashForecastInsight(cashForecast));
+  }
+  if (recurringRevenue > 0 && revenueTotal > 0) {
+    items.push({
+      level: recurringShare >= 50 ? "normal" : "warning",
+      title: `Recurring revenue signal is ${recurringShare.toFixed(0)}%`,
+      body: `${formatCurrency(recurringRevenue)} of selected revenue is tagged as subscription, recurring, SaaS, MRR, ARR, license, enterprise, or SMB.`
+    });
+  }
   if (topRevenueHead && topRevenueHead.revenue > 0) {
     items.push({
       level: "normal",
@@ -52,6 +80,13 @@ export function renderInsights(periodSummary, headSummary, filtered) {
       body: `${formatCurrency(anomaly.outflow)} of outflows, ${anomaly.multiple.toFixed(1)}x the average selected period. Click the trend chart to inspect it.`
     });
   }
+  largeTransactions.forEach((transaction) => {
+    items.push({
+      level: "warning",
+      title: `Large ${transaction.flow} item: ${transaction.head}`,
+      body: `${formatCurrency(transaction.amount)} on ${transaction.dateISO}, ${transaction.multiple.toFixed(1)}x the median visible transaction. ${transaction.description}`
+    });
+  });
   if (outflowTotal > 0) {
     items.push({
       level: concentration > 65 ? "warning" : "normal",
@@ -59,6 +94,11 @@ export function renderInsights(periodSummary, headSummary, filtered) {
       body: `Top three heads account for ${concentration.toFixed(1)}% of cash outflows in the current slice.`
     });
   }
+
+  if (cashHealth?.hasEnoughHistory) {
+    items.unshift(cashHealthInsight(cashHealth));
+  }
+
   if (!items.length && filtered.length) {
     items.push({
       level: "normal",
@@ -67,15 +107,97 @@ export function renderInsights(periodSummary, headSummary, filtered) {
     });
   }
 
-  els.insightList.innerHTML = items.map((item) => `
-    <article class="insight-item ${item.level}">
-      <strong>${escapeHtml(item.title)}</strong>
-      <span>${escapeHtml(item.body)}</span>
-    </article>
+  const groups = [
+    ["Critical", items.filter((item) => item.level === "critical")],
+    ["Watch", items.filter((item) => item.level === "warning")],
+    ["Positive", items.filter((item) => item.level === "normal" && isPositiveSignal(item))],
+    ["Context", items.filter((item) => item.level === "normal" && !isPositiveSignal(item))]
+  ].filter(([, groupItems]) => groupItems.length);
+
+  els.insightList.innerHTML = groups.map(([group, groupItems]) => `
+    <section class="insight-group">
+      <h4>${escapeHtml(group)}</h4>
+      <div>
+        ${groupItems.map((item) => `
+          <article class="insight-item ${item.level}">
+            <strong>${escapeHtml(item.title)}</strong>
+            <span>${escapeHtml(item.body)}</span>
+          </article>
+        `).join("")}
+      </div>
+    </section>
   `).join("");
+  staggerChildren(els.insightList, ".insight-item");
+}
+
+function isPositiveSignal(item) {
+  return /positive|growing|best|recurring|led by|stays positive/i.test(item.title);
+}
+
+function cashForecastInsight(cashForecast) {
+  if (cashForecast.cashOutDate) {
+    return {
+      level: "critical",
+      title: `13-week forecast crosses below zero`,
+      body: `Projected cash turns negative in the week of ${cashForecast.cashOutDate}. Ending cash is ${formatCurrency(cashForecast.endingCash)} after manual events and recent run-rate.`
+    };
+  }
+
+  const weeklyNetBurn = cashForecast.averageWeeklyOutflow - cashForecast.averageWeeklyInflow;
+  const threeMonthBurn = weeklyNetBurn > 0 ? weeklyNetBurn * 13 : 0;
+  if (threeMonthBurn > 0 && cashForecast.minimumCash < threeMonthBurn) {
+    return {
+      level: "warning",
+      title: "13-week forecast is tight",
+      body: `Lowest projected cash is ${formatCurrency(cashForecast.minimumCash)} in the week of ${cashForecast.minimumCashWeek}, below roughly three months of current net burn.`
+    };
+  }
+
+  return {
+    level: cashForecast.hasLimitedHistory ? "warning" : "normal",
+    title: "13-week forecast stays positive",
+    body: `Projected ending cash is ${formatCurrency(cashForecast.endingCash)}. Baseline uses ${cashForecast.baselineWeeksUsed} completed historical weeks plus manual events.`
+  };
+}
+
+function cashHealthInsight(cashHealth) {
+  if (cashHealth.status === "immediate") {
+    return {
+      level: "critical",
+      title: "Cash balance needs attention",
+      body: `Current bank balance is ${formatCurrency(cashHealth.currentBankBalance)} with monthly net burn of ${formatCurrency(cashHealth.monthlyNetBurn)}. Enter a realistic balance to calculate runway.`
+    };
+  }
+  if (cashHealth.status === "growing") {
+    return {
+      level: "normal",
+      title: "Cash position is growing",
+      body: `Average monthly revenue is ${formatCurrency(cashHealth.averageMonthlyRevenue)} against ${formatCurrency(cashHealth.averageMonthlyOutflow)} of average outflow. Runway is effectively unlimited at current burn.`
+    };
+  }
+  const delta = Number.isFinite(cashHealth.runwayDeltaMonths)
+    ? ` Runway ${cashHealth.runwayDeltaMonths >= 0 ? "improved" : "worsened"} by ${Math.abs(cashHealth.runwayDeltaMonths).toFixed(1)} months versus the prior window.`
+    : "";
+  return {
+    level: cashHealth.status === "critical" ? "critical" : (cashHealth.status === "warning" ? "warning" : "normal"),
+    title: `Cash runway is ${cashHealth.runwayMonths.toFixed(1)} months`,
+    body: `Monthly net burn is ${formatCurrency(cashHealth.monthlyNetBurn)} based on ${cashHealth.monthsUsed.join(", ")}.${delta}${cashHealth.runwayMonths < 9 ? " Review the largest outflow heads." : ""}`
+  };
+}
+
+function isRecurringRow(row) {
+  const haystack = `${row.head} ${row.parent} ${row.description}`.toLowerCase();
+  return ["subscription", "recurring", "enterprise", "smb", "license", "saas", "mrr", "arr"].some((keyword) => haystack.includes(keyword));
 }
 
 export function renderFocus(filtered, headSummary) {
+  const hasFocusedSlice = Boolean(state.filters.focusedPeriod || state.filters.focusedHead || state.filters.selectedHeads.size);
+  if (els.focusPanel) els.focusPanel.hidden = !hasFocusedSlice;
+  if (!hasFocusedSlice) {
+    els.focusStats.innerHTML = "";
+    return;
+  }
+
   const parentSummary = Array.from(groupBy(filtered, (record) => record.parent), ([parent, rows]) => ({
     parent,
     revenue: rows.filter((row) => row.flow === "revenue").reduce((sum, row) => sum + row.amount, 0),
@@ -99,6 +221,7 @@ export function renderFocus(filtered, headSummary) {
       <span>${escapeHtml(item.body)}</span>
     </article>
   `).join("");
+  staggerChildren(els.focusStats, ".focus-item");
 }
 
 export function renderPressureList(headSummary) {
@@ -109,10 +232,18 @@ export function renderPressureList(headSummary) {
   }
 
   const totalOutflow = topPressure.reduce((sum, item) => sum + item.outflow, 0);
-  els.pressureList.innerHTML = topPressure.map((item) => `
-    <article class="pressure-item ${item.outflow > totalOutflow * 0.3 ? "warning" : ""}">
+  const totalGlobalOutflow = headSummary.reduce((sum, item) => sum + item.outflow, 0);
+
+  els.pressureList.innerHTML = topPressure.map((item) => {
+    const share = totalGlobalOutflow ? item.outflow / totalGlobalOutflow : 0;
+    const isWarning = item.outflow > totalOutflow * 0.3;
+    return `
+    <article class="pressure-item ${isWarning ? "warning" : ""}">
       <strong>${escapeHtml(item.head)}</strong>
-      <div>${formatCurrency(item.outflow)} outflow, ${shareOf(item.outflow, totalOutflow)} of the top pressure stack.</div>
+      <div>${formatCurrency(item.outflow)} outflow, ${shareOf(item.outflow, totalGlobalOutflow)} of total selected outflows.</div>
+      <div class="pressure-meter" aria-hidden="true"><span style="--pressure-share:${Math.max(0.04, Math.min(1, share)).toFixed(3)}"></span></div>
     </article>
-  `).join("");
+  `;
+  }).join("");
+  staggerChildren(els.pressureList, ".pressure-item");
 }

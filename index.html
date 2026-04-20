@@ -4,240 +4,302 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CFO Flight Deck</title>
+  <meta name="description" content="Local finance cockpit for inspecting revenue, cash outflows, anomalies, and transaction drilldowns from CSV exports.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23070910'/%3E%3Cpath d='M18 38V18h28M18 38h28V26' fill='none' stroke='%2338bdf8' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
+  <div id="appGate" class="app-gate" hidden>
+    <form id="appGateForm" class="app-gate-card">
+      <span class="lbl">Private review</span>
+      <h1>CFO Flight Deck</h1>
+      <p>Enter the review password to open the dashboard. CSV files are processed locally in your browser and are not uploaded by this app.</p>
+      <label><span>Password</span><input id="appGatePassword" type="password" autocomplete="current-password" placeholder="Review password"></label>
+      <button class="primary-button" type="submit">Unlock dashboard</button>
+      <p id="appGateStatus" class="footnote" role="status"></p>
+    </form>
+  </div>
   <div class="shell">
-    <aside class="sidebar">
-      <div class="brand-block">
-        <p class="eyebrow">CEO eagle-eye finance cockpit</p>
-        <h1>CFO Flight Deck</h1>
-        <p class="lede">
-          Load a CSV, map a few columns once, then inspect revenue versus cash outflows
-          by day, week, month, and account head with drilldown filters.
-        </p>
-      </div>
-
-      <section class="panel control-panel">
-        <div class="panel-heading">
-          <h2>Load Data</h2>
-          <p>Bring your chart-of-accounts export directly into the dashboard.</p>
-        </div>
-        <label class="file-input">
-          <span>Choose CSV</span>
-          <input id="csvFile" type="file" accept=".csv,text/csv">
-        </label>
-        <button id="loadSampleBtn" class="ghost-button" type="button">Load bundled sample</button>
-        <p id="fileStatus" class="status-text">No CSV loaded yet.</p>
-      </section>
-
-      <section class="panel control-panel">
-        <div class="panel-heading">
-          <h2>View Mode</h2>
-          <p>Switch the executive rollup without losing your filters.</p>
-        </div>
-        <div class="segmented">
-          <button class="segment is-active" data-grain="daily" type="button">Daily</button>
-          <button class="segment" data-grain="weekly" type="button">Weekly</button>
-          <button class="segment" data-grain="monthly" type="button">Monthly</button>
-        </div>
-      </section>
-
-      <section class="panel control-panel">
-        <div class="panel-heading">
-          <h2>Column Mapping</h2>
-          <p>Auto-detect does the first pass. Adjust if your export uses different names.</p>
-        </div>
-        <div class="mapping-grid">
-          <label><span>Date</span><select id="dateColumn"></select></label>
-          <label><span>Amount</span><select id="amountColumn"></select></label>
-          <label><span>Flow Type</span><select id="typeColumn"></select></label>
-          <label><span>Account Head</span><select id="headColumn"></select></label>
-          <label><span>Parent Head</span><select id="parentColumn"></select></label>
-          <label><span>Description</span><select id="descriptionColumn"></select></label>
-          <label><span>Date format</span><select id="dateFormatSelect">
-            <option value="auto">Auto-detect</option>
-            <option value="dmy">Day/Month/Year</option>
-            <option value="mdy">Month/Day/Year</option>
-            <option value="ymd">Year-Month-Day (ISO)</option>
-          </select></label>
-        </div>
-        <div class="mapping-text">
-          <label>
-            <span>Revenue aliases</span>
-            <input id="revenueAliases" type="text" value="revenue,inflow,cash in,income,sales,credit">
-          </label>
-          <label>
-            <span>Outflow aliases</span>
-            <input id="outflowAliases" type="text" value="outflow,cash out,expense,opex,payment,debit">
-          </label>
-        </div>
-        <button id="applyMappingBtn" class="primary-button" type="button">Apply Mapping</button>
-        <div class="mapping-grid" style="margin-top:12px">
-          <label><span>Currency</span><select id="currencySelect">
-            <option value="USD">USD ($)</option>
-            <option value="EUR">EUR (€)</option>
-            <option value="GBP">GBP (£)</option>
-            <option value="JPY">JPY (¥)</option>
-            <option value="INR">INR (₹)</option>
-            <option value="PKR">PKR (₨)</option>
-            <option value="CAD">CAD (C$)</option>
-            <option value="AUD">AUD (A$)</option>
-            <option value="CNY">CNY (¥)</option>
-            <option value="CHF">CHF (Fr)</option>
-            <option value="SGD">SGD (S$)</option>
-            <option value="AED">AED (د.إ)</option>
-            <option value="SAR">SAR (﷼)</option>
-            <option value="ZAR">ZAR (R)</option>
-            <option value="BRL">BRL (R$)</option>
-            <option value="MXN">MXN ($)</option>
-            <option value="KRW">KRW (₩)</option>
-            <option value="TRY">TRY (₺)</option>
-            <option value="SEK">SEK (kr)</option>
-            <option value="NOK">NOK (kr)</option>
-            <option value="BDT">BDT (৳)</option>
-            <option value="NGN">NGN (₦)</option>
-            <option value="EGP">EGP (E£)</option>
-            <option value="THB">THB (฿)</option>
-            <option value="IDR">IDR (Rp)</option>
-          </select></label>
-        </div>
-        <p class="footnote">If Flow Type is blank, positive values are treated as revenue and negative values as outflows.</p>
-      </section>
-
-      <section class="panel control-panel">
-        <div class="panel-heading">
-          <h2>Filters</h2>
-          <p>Every chart click also narrows these filters.</p>
-        </div>
-        <div class="filter-grid">
-          <label><span>Start date</span><input id="startDate" type="date"></label>
-          <label><span>End date</span><input id="endDate" type="date"></label>
-          <p id="dateRangeWarn" class="date-range-warn" hidden>Start date is after end date.</p>
-          <label><span>Search</span><input id="searchInput" type="search" placeholder="Head, parent, memo..."></label>
-        </div>
-        <div class="toggle-group">
-          <button class="filter-chip is-active" data-flow-filter="revenue" type="button">Revenue</button>
-          <button class="filter-chip is-active" data-flow-filter="outflow" type="button">Cash Outflow</button>
-        </div>
-        <div class="head-filter-box">
-          <div class="head-filter-header">
-            <span>Account heads</span>
-            <button id="clearHeadFilterBtn" class="text-button" type="button">Clear</button>
-          </div>
-          <input id="headSearch" type="search" placeholder="Filter heads">
-          <div id="headChecklist" class="head-checklist"></div>
-        </div>
-        <button id="resetFiltersBtn" class="ghost-button" type="button">Reset all filters</button>
-      </section>
+    <aside class="rail" aria-label="Dashboard sections">
+      <div class="logo mono">CF</div>
+      <button id="railCockpit" title="Cockpit" aria-label="Cockpit overview" data-label="Cockpit" class="active" data-scroll-target="cockpitTop"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l5 3"/></svg></button>
+      <button id="railForecast" title="Forecast" aria-label="13-week forecast" data-label="Forecast" data-scroll-target="forecastSection"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 18h16"/><path d="M5 15l4-4 4 2 6-7"/><circle cx="19" cy="6" r="1.5"/></svg></button>
+      <button id="railTrends" title="Trends" aria-label="Trend by period" data-label="Trends" data-scroll-target="trendSection"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3,20 7,14 11,18 15,10 21,14"/></svg></button>
+      <button id="railFlow" title="Cashflow bridge" aria-label="Cashflow bridge" data-label="Cashflow" data-scroll-target="flowSection"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M3 12h18M7 7l5 5-5 5"/></svg></button>
+      <button id="railPulse" title="CEO Pulse" aria-label="CEO Pulse" data-label="CEO Pulse" data-scroll-target="pulseSection"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 13h4l2-7 4 14 2-7h4"/></svg></button>
+      <button id="railMatrix" title="Period matrix" aria-label="Period matrix" data-label="Matrix" data-scroll-target="matrixSection"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
+      <button id="railTx" title="Transactions" aria-label="Transactions" data-label="Transactions" data-scroll-target="transactionsSection"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+      <div class="spacer"></div>
+      <button id="railHelp" title="Help" aria-label="Help and privacy notes" data-label="Help" data-scroll-target="helpSection"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 1 1 3.5 2.1c-.8.5-1.3 1-1.3 2.1"/><path d="M12 17h.01"/></svg></button>
+      <button id="railSettings" title="Settings" aria-label="Settings menu" data-label="Settings"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.4 3h3.2l.6 2.4c.5.2 1 .4 1.5.7l2.2-1.2 2.2 2.2-1.2 2.2c.3.5.5 1 .7 1.5l2.4.6v3.2l-2.4.6c-.2.5-.4 1-.7 1.5l1.2 2.2-2.2 2.2-2.2-1.2c-.5.3-1 .5-1.5.7l-.6 2.4h-3.2l-.6-2.4c-.5-.2-1-.4-1.5-.7l-2.2 1.2-2.2-2.2 1.2-2.2c-.3-.5-.5-1-.7-1.5L2 14.6v-3.2l2.4-.6c.2-.5.4-1 .7-1.5L3.9 7.1l2.2-2.2 2.2 1.2c.5-.3 1-.5 1.5-.7L10.4 3Z"/><circle cx="12" cy="12" r="3.2"/></svg></button>
     </aside>
-
-    <main class="dashboard">
-      <header class="hero panel">
-        <div>
-          <p class="eyebrow">Executive summary</p>
-          <h2>See where cash is earned, where it leaks, and what changed</h2>
+    <div class="workspace">
+      <header class="topbar">
+        <div class="sys-status">
+          <span class="dot"></span>
+          <div>
+            <div id="sysStatusLabel" class="lbl">Systems nominal</div>
+            <div id="sysStatusMeta" class="mono">Flight Deck · Waiting for data</div>
+          </div>
         </div>
-        <div class="hero-actions">
-          <button id="exportVisibleBtn" class="ghost-button" type="button">Export visible rows</button>
+        <div class="ticker">
+          <div id="tickerRow" class="ticker-row"></div>
+        </div>
+        <div class="cmd">
+          <div style="position:relative">
+            <svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--fg-3)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+            <input id="topbarSearchInput" type="search" placeholder="Search heads, periods, memos..." style="padding-left:26px;width:220px">
+          </div>
+          <select id="topbarPeriodSelect">
+            <option>All periods</option>
+            <option>Q1 26</option><option>Q4 25</option><option>Last 30D</option><option>YTD</option>
+          </select>
+          <button id="toggleControlDrawer" title="Settings" aria-label="Settings menu" aria-controls="controlDrawer" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.4 3h3.2l.6 2.4c.5.2 1 .4 1.5.7l2.2-1.2 2.2 2.2-1.2 2.2c.3.5.5 1 .7 1.5l2.4.6v3.2l-2.4.6c-.2.5-.4 1-.7 1.5l1.2 2.2-2.2 2.2-2.2-1.2c-.5.3-1 .5-1.5.7l-.6 2.4h-3.2l-.6-2.4c-.5-.2-1-.4-1.5-.7l-2.2 1.2-2.2-2.2 1.2-2.2c-.3-.5-.5-1-.7-1.5L2 14.6v-3.2l2.4-.6c.2-.5.4-1 .7-1.5L3.9 7.1l2.2-2.2 2.2 1.2c.5-.3 1-.5 1.5-.7L10.4 3Z"/><circle cx="12" cy="12" r="3.2"/></svg></button>
         </div>
       </header>
+      <div id="cockpitTop" class="hero-strip">
+        <p class="eyebrow" id="heroStatus">Live operating view</p>
+        <h2 id="heroTitle">Financial overview for the selected period.</h2>
+        <p class="lede" id="heroSubtitle">Load a dataset to begin the analysis.</p>
+      </div>
+      <main class="main">
 
-      <section class="panel breadcrumb-panel">
-        <div class="panel-heading">
-          <h2>Active Drilldown</h2>
-          <p>Click a period, a head, or an anomaly and the rest of the dashboard will follow.</p>
-        </div>
-        <div id="breadcrumbs" class="breadcrumbs"></div>
-      </section>
+        <section class="kpi-row" aria-label="Key finance metrics">
+          <article class="panel kpi">
+            <div class="k-top"><span class="lbl">Total Revenue</span><span id="revenueDelta" class="delta"></span></div>
+            <div id="totalRevenue" class="k-val tnum">-</div>
+          </article>
+          <article class="panel kpi">
+            <div class="k-top"><span class="lbl">Total Outflow</span><span id="outflowDelta" class="delta"></span></div>
+            <div id="totalOutflow" class="k-val tnum">-</div>
+          </article>
+          <article class="panel kpi">
+            <div class="k-top"><span class="lbl">Net Cash</span><span id="netDelta" class="delta"></span></div>
+            <div id="netCash" class="k-val tnum">-</div>
+          </article>
+          <article class="panel kpi">
+            <div class="k-top"><span class="lbl">Efficiency Ratio</span></div>
+            <div id="efficiencyRatio" class="k-val tnum">-</div>
+            <div id="efficiencyNote" class="lbl"></div>
+          </article>
+          <article class="panel kpi">
+            <div class="k-top"><span class="lbl">Cash Runway</span><span id="runwayDelta" class="delta"></span></div>
+            <div id="cashRunway" class="k-val tnum">-</div>
+          </article>
+        </section>
 
-      <section class="kpi-grid">
-        <article class="panel kpi-card"><span>Total revenue</span><strong id="totalRevenue">-</strong><small id="revenueDelta">Load data to compare periods.</small></article>
-        <article class="panel kpi-card"><span>Total cash outflow</span><strong id="totalOutflow">-</strong><small id="outflowDelta">Outflows shown as positive cash usage.</small></article>
-        <article class="panel kpi-card"><span>Net cash</span><strong id="netCash">-</strong><small id="netDelta">Revenue minus outflow for the selected view.</small></article>
-        <article class="panel kpi-card"><span>Efficiency ratio</span><strong id="efficiencyRatio">-</strong><small id="efficiencyNote">Revenue divided by outflow.</small></article>
-      </section>
+        <section class="context-stack">
+          <article class="panel dashboard-context">
+            <div class="panel-hd"><h3>Active View</h3></div>
+            <div id="breadcrumbs" class="panel-bd breadcrumbs"></div>
+          </article>
+          <article class="panel dashboard-context">
+            <div class="panel-hd"><h3>Data Quality</h3></div>
+            <div id="dataQualityList" class="panel-bd data-quality-list"></div>
+          </article>
+        </section>
 
-      <section class="analysis-grid">
-        <article class="panel insight-panel">
-          <div class="panel-heading">
-            <h2>CEO Pulse</h2>
-            <p>Short signals. No spreadsheet archaeology.</p>
+        <section id="forecastSection" class="panel hero">
+          <div class="panel-hd">
+            <h3><span class="accent-mark">◈</span>13-Week Cash Forecast <span class="tag">Hero · Flight Path</span></h3>
+            <div class="r"><span>Base forecast</span></div>
           </div>
-          <div id="insightList" class="insight-list"></div>
-        </article>
+          <div id="cashForecastPanel" class="panel-bd"></div>
+          <div id="forecastEventsList" class="hero-stats"></div>
+        </section>
 
-        <article class="panel focus-panel">
-          <div class="panel-heading">
-            <h2>Focus Breakdown</h2>
-            <p>Current selection by head and parent group.</p>
+        <section id="trendSection" class="row-2">
+          <article class="panel">
+            <div class="panel-hd"><h3>Trend by Period <span class="tag">Live Slice</span></h3></div>
+            <div id="trendChart" class="panel-bd"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-hd"><h3>Top Heads</h3></div>
+            <div id="headChart" class="panel-bd"></div>
+          </article>
+        </section>
+
+        <section id="flowSection" class="panel flow-panel">
+          <div class="panel-hd"><h3>Cashflow Bridge <span class="tag">Live Flow</span></h3></div>
+          <div id="flowDiagram" class="panel-bd"></div>
+        </section>
+
+        <section id="pulseSection" class="row-2 signal-grid">
+          <article class="panel pulse-panel">
+            <div class="panel-hd"><h3>CEO Pulse</h3></div>
+            <div id="insightList" class="panel-bd insight-list"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-hd"><h3>Operating Signals</h3></div>
+            <div id="saasControls" class="panel-bd saas-controls"></div>
+          </article>
+        </section>
+
+        <section class="row-2 focus-pressure-grid">
+          <article id="focusPanel" class="panel focus-panel" hidden>
+            <div class="panel-hd"><h3>Focus Breakdown</h3></div>
+            <div id="focusStats" class="panel-bd focus-stats"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-hd"><h3>Outflow Pressure</h3></div>
+            <div id="pressureList" class="panel-bd pressure pressure-list"></div>
+          </article>
+        </section>
+
+        <section id="matrixSection" class="panel">
+          <div class="panel-hd"><h3>Period Matrix</h3></div>
+          <div id="periodMatrix" class="panel-bd"></div>
+        </section>
+
+        <section id="transactionsSection" class="panel">
+          <div class="panel-hd">
+            <h3>Transaction Drillthrough</h3>
+            <button id="exportVisibleBtn" class="ghost-button" type="button">Export visible rows</button>
           </div>
-          <div id="focusStats" class="focus-stats"></div>
-        </article>
-      </section>
-
-      <section class="viz-grid">
-        <article class="panel">
-          <div class="panel-heading">
-            <h2>Trend by Period</h2>
-            <p>Grouped bars show revenue and outflow. The line tracks net cash.</p>
+          <div class="tx-wrap">
+            <table class="tx">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Head</th>
+                  <th>Parent</th>
+                  <th>Description</th>
+                  <th class="r">Amount</th>
+                </tr>
+              </thead>
+              <tbody id="detailBody"></tbody>
+            </table>
           </div>
-          <div id="trendChart" class="chart"></div>
-        </article>
-
-        <article class="panel">
-          <div class="panel-heading">
-            <h2>Top Heads</h2>
-            <p>Click a bar to isolate a head. Revenue grows to the right, outflows to the left.</p>
-          </div>
-          <div id="headChart" class="chart"></div>
-        </article>
-      </section>
-
-      <section class="viz-grid">
-        <article class="panel">
-          <div class="panel-heading">
-            <h2>Period Matrix</h2>
-            <p>Quick scan of revenue, outflow, and net across the active grain.</p>
-          </div>
-          <div id="periodMatrix" class="matrix-table"></div>
-        </article>
-
-        <article class="panel">
-          <div class="panel-heading">
-            <h2>Outflow Pressure</h2>
-            <p>Heads with the highest cash pull and the largest share of outflows.</p>
-          </div>
-          <div id="pressureList" class="pressure-list"></div>
-        </article>
-      </section>
-
-      <section class="panel">
-        <div class="panel-heading">
-          <h2>Transaction Drillthrough</h2>
-          <p>The detail table always reflects the exact slice you clicked into.</p>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Head</th>
-                <th>Parent</th>
-                <th>Description</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody id="detailBody"></tbody>
-          </table>
           <div id="detailFooter" class="table-footer"></div>
+        </section>
+
+        <section id="helpSection" class="panel cockpit-guide-panel">
+          <div class="panel-hd">
+            <h3>Help</h3>
+            <p>Local CSV privacy and review notes.</p>
+          </div>
+          <div class="cockpit-guide">
+            <article><strong>Local CSV</strong><span>CSV files are processed locally in your browser. No transaction data is uploaded by this app.</span></article>
+            <article><strong>Auto mapping</strong><span>Date, amount, flow, account head, parent head, and description are detected first, then can be corrected in Column Mapping.</span></article>
+            <article><strong>Chart drilldowns</strong><span>Click period bars, account-head bars, or Period Matrix rows to narrow every KPI, insight, chart, and transaction row.</span></article>
+          </div>
+        </section>
+
+        <div id="controlDrawer" class="control-drawer" aria-hidden="true">
+            <div class="drawer-head">
+              <div>
+                <h2>Settings</h2>
+                <p>Data, forecast assumptions, filters, and display controls.</p>
+              </div>
+              <button id="closeControlDrawer" class="drawer-close" type="button" aria-label="Close settings">×</button>
+            </div>
+
+            <section class="panel control-panel">
+              <div class="panel-hd"><h3>Load Data</h3></div>
+              <div class="panel-bd">
+                <label class="file-input"><span>Choose CSV</span><input id="csvFile" type="file" accept=".csv,text/csv"></label>
+                <button id="loadSampleBtn" class="ghost-button" type="button">Load dynamic sample</button>
+                <div class="recent-dataset-row">
+                  <label><span>Recent dataset</span><select id="recentDatasetSelect"></select></label>
+                  <button id="loadRecentDatasetBtn" class="ghost-button" type="button">Restore</button>
+                </div>
+                <div class="cash-position-grid">
+                  <label><span>Current Bank Balance</span><input id="currentBankBalance" type="number" placeholder="0"></label>
+                  <label><span>Balance As Of</span><input id="balanceAsOf" type="date"></label>
+                </div>
+                <p id="fileStatus" class="status-text">No CSV loaded yet.</p>
+              </div>
+            </section>
+
+            <section class="panel control-panel">
+              <div class="panel-hd"><h3>Forecast Assumptions</h3></div>
+              <div class="panel-bd">
+                <div class="forecast-event-grid">
+                  <label><span>Date</span><input id="forecastEventDate" type="date"></label>
+                  <label><span>Flow</span><select id="forecastEventFlow"><option value="cash in">Cash in</option><option value="cash out">Cash out</option></select></label>
+                  <label><span>Amount</span><input id="forecastEventAmount" type="number" min="0" step="0.01" placeholder="0"></label>
+                  <label><span>Label</span><input id="forecastEventLabel" type="text" placeholder="Tax payment, prepay..."></label>
+                </div>
+                <button id="addForecastEventBtn" class="primary-button" type="button">Add forecast event</button>
+                <p class="footnote">13-week forecast uses recent actuals plus manual events.</p>
+              </div>
+            </section>
+
+            <section class="panel control-panel">
+              <div class="panel-hd"><h3>View Mode</h3></div>
+              <div class="panel-bd">
+                <div class="seg">
+                  <button class="segment" data-grain="daily" type="button">Daily</button>
+                  <button class="segment" data-grain="weekly" type="button">Weekly</button>
+                  <button class="segment is-active" data-grain="monthly" type="button">Monthly</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel control-panel">
+              <div class="panel-hd"><h3>Display</h3></div>
+              <div class="panel-bd">
+                <label class="currency-picker"><span>Display currency</span><input id="currencySearchInput" type="search" placeholder="Search currency, country, or code"><select id="currencySelect" size="7">
+                  <option value="USD" data-search="usd dollar united states america">$ USD - US dollar</option><option value="EUR" data-search="eur euro europe">EUR - Euro</option><option value="GBP" data-search="gbp pound sterling united kingdom britain">GBP - British pound</option><option value="PKR" data-search="pkr rupee pakistan">PKR - Pakistani rupee</option><option value="AED" data-search="aed dirham uae united arab emirates dubai">AED - UAE dirham</option><option value="SAR" data-search="sar riyal saudi arabia">SAR - Saudi riyal</option><option value="INR" data-search="inr rupee india">INR - Indian rupee</option><option value="CAD" data-search="cad dollar canada">CAD - Canadian dollar</option><option value="AUD" data-search="aud dollar australia">AUD - Australian dollar</option><option value="SGD" data-search="sgd dollar singapore">SGD - Singapore dollar</option><option value="CHF" data-search="chf franc switzerland swiss">CHF - Swiss franc</option><option value="JPY" data-search="jpy yen japan">JPY - Japanese yen</option><option value="CNY" data-search="cny yuan renminbi china">CNY - Chinese yuan</option><option value="HKD" data-search="hkd dollar hong kong">HKD - Hong Kong dollar</option><option value="NZD" data-search="nzd dollar new zealand">NZD - New Zealand dollar</option><option value="QAR" data-search="qar riyal qatar">QAR - Qatari riyal</option><option value="KWD" data-search="kwd dinar kuwait">KWD - Kuwaiti dinar</option><option value="BHD" data-search="bhd dinar bahrain">BHD - Bahraini dinar</option><option value="OMR" data-search="omr rial oman">OMR - Omani rial</option><option value="ZAR" data-search="zar rand south africa">ZAR - South African rand</option><option value="BRL" data-search="brl real brazil">BRL - Brazilian real</option><option value="MXN" data-search="mxn peso mexico">MXN - Mexican peso</option><option value="KRW" data-search="krw won korea south korea">KRW - South Korean won</option><option value="TRY" data-search="try lira turkey turkiye">TRY - Turkish lira</option><option value="SEK" data-search="sek krona sweden">SEK - Swedish krona</option><option value="NOK" data-search="nok krone norway">NOK - Norwegian krone</option><option value="DKK" data-search="dkk krone denmark">DKK - Danish krone</option><option value="PLN" data-search="pln zloty poland">PLN - Polish zloty</option><option value="BDT" data-search="bdt taka bangladesh">BDT - Bangladeshi taka</option><option value="NGN" data-search="ngn naira nigeria">NGN - Nigerian naira</option><option value="EGP" data-search="egp pound egypt">EGP - Egyptian pound</option><option value="THB" data-search="thb baht thailand">THB - Thai baht</option><option value="IDR" data-search="idr rupiah indonesia">IDR - Indonesian rupiah</option><option value="MYR" data-search="myr ringgit malaysia">MYR - Malaysian ringgit</option><option value="PHP" data-search="php peso philippines">PHP - Philippine peso</option><option value="VND" data-search="vnd dong vietnam">VND - Vietnamese dong</option>
+                </select></label>
+                <p class="footnote">Display formatting only, not a currency converter. For exchange rates, please contact your nearest forex desk, not Billu.</p>
+              </div>
+            </section>
+
+            <section class="panel control-panel">
+              <div class="panel-hd"><h3>Column Mapping</h3></div>
+              <div class="panel-bd">
+                <div class="mapping-grid">
+                  <label><span>Date</span><select id="dateColumn"></select></label>
+                  <label><span>Amount</span><select id="amountColumn"></select></label>
+                  <label><span>Flow Type</span><select id="typeColumn"></select></label>
+                  <label><span>Account Head</span><select id="headColumn"></select></label>
+                  <label><span>Parent Head</span><select id="parentColumn"></select></label>
+                  <label><span>Description</span><select id="descriptionColumn"></select></label>
+                  <label><span>Date format</span><select id="dateFormatSelect">
+                    <option value="auto">Auto-detect</option><option value="dmy">Day/Month/Year</option><option value="mdy">Month/Day/Year</option><option value="ymd">Year-Month-Day (ISO)</option>
+                  </select></label>
+                </div>
+                <div class="mapping-text">
+                  <label><span>Revenue aliases</span><input id="revenueAliases" type="text" value="revenue,inflow,cash in,income,sales,credit"></label>
+                  <label><span>Outflow aliases</span><input id="outflowAliases" type="text" value="outflow,cash out,expense,opex,payment,debit"></label>
+                </div>
+                <button id="applyMappingBtn" class="primary-button" type="button">Apply Mapping</button>
+                <p class="footnote">Positive values treated as revenue when Flow Type is blank.</p>
+              </div>
+            </section>
+
+            <section class="panel control-panel">
+              <div class="panel-hd"><h3>Filters</h3></div>
+              <div class="panel-bd">
+                <div class="filter-grid">
+                  <label><span>Start date</span><input id="startDate" type="date"></label>
+                  <label><span>End date</span><input id="endDate" type="date"></label>
+                  <p id="dateRangeWarn" class="date-range-warn" hidden>Start date is after end date.</p>
+                  <label><span>Search</span><input id="searchInput" type="search" placeholder="Head, parent, memo..."></label>
+                </div>
+                <div class="toggle-group">
+                  <button class="filter-chip is-active" data-flow-filter="revenue" type="button">Revenue</button>
+                  <button class="filter-chip is-active" data-flow-filter="outflow" type="button">Cash Outflow</button>
+                </div>
+                <div class="head-filter-box">
+                  <div class="head-filter-header"><span>Account heads</span><button id="clearHeadFilterBtn" class="text-button" type="button">Clear</button></div>
+                  <input id="headSearch" type="search" placeholder="Filter heads">
+                  <div id="headChecklist" class="head-checklist"></div>
+                </div>
+                <button id="resetFiltersBtn" class="ghost-button" type="button">Reset all filters</button>
+              </div>
+            </section>
+
+          </div>
         </div>
-      </section>
-    </main>
+
+      </main>
+    </div>
   </div>
 
   <script type="module" src="./src/main.js"></script>

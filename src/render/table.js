@@ -25,7 +25,7 @@ export function renderDetailTable(filtered) {
     document.getElementById("showAllRowsBtn").addEventListener("click", () => {
       state.detailRowCap = 0;
       render();
-    });
+    }, { once: true });
   } else if (sorted.length > 0) {
     els.detailFooter.innerHTML = `<span class="chip-note">${sorted.length.toLocaleString()} transactions</span>`;
   } else {
@@ -87,11 +87,23 @@ export function renderEmptyState(message) {
   els.totalRevenue.textContent = "-";
   els.totalOutflow.textContent = "-";
   els.netCash.textContent = "-";
+  els.netCash.className = "k-val tnum";
   els.efficiencyRatio.textContent = "-";
-  els.revenueDelta.textContent = text;
-  els.outflowDelta.textContent = text;
-  els.netDelta.textContent = text;
+  els.revenueDelta.textContent = "";
+  els.revenueDelta.className = "delta";
+  els.outflowDelta.textContent = "";
+  els.outflowDelta.className = "delta";
+  els.netDelta.textContent = "";
+  els.netDelta.className = "delta";
   els.efficiencyNote.textContent = text;
+  els.cashRunway.textContent = "-";
+  els.cashRunway.className = "k-val tnum";
+  els.runwayDelta.textContent = "";
+  els.runwayDelta.className = "delta";
+  if (els.cashForecastPanel) {
+    els.cashForecastPanel.innerHTML = `<div class="chart-empty">${escapeHtml(text)}</div>`;
+  }
+  els.saasControls.innerHTML = `<div class="chart-empty">${escapeHtml(text)}</div>`;
   els.insightList.innerHTML = `<div class="chart-empty">${escapeHtml(text)}</div>`;
   els.focusStats.innerHTML = `<div class="chart-empty">${escapeHtml(text)}</div>`;
   els.trendChart.innerHTML = `<div class="chart-empty">${escapeHtml(text)}</div>`;
@@ -99,5 +111,17 @@ export function renderEmptyState(message) {
   els.periodMatrix.innerHTML = `<div class="chart-empty">${escapeHtml(text)}</div>`;
   els.pressureList.innerHTML = `<div class="chart-empty">${escapeHtml(text)}</div>`;
   els.detailBody.innerHTML = `<tr><td colspan="6" class="table-empty">${escapeHtml(text)}</td></tr>`;
+  if (els.flowDiagram) {
+    els.flowDiagram.innerHTML = "";
+  }
+  if (els.tickerRow) {
+    els.tickerRow.innerHTML = "";
+  }
+  if (els.sysStatusLabel) {
+    els.sysStatusLabel.textContent = "Waiting for data";
+  }
+  if (els.sysStatusMeta) {
+    els.sysStatusMeta.textContent = "Load a CSV to begin";
+  }
   renderBreadcrumbs();
 }

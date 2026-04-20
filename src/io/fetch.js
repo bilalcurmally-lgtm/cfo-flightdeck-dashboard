@@ -1,12 +1,10 @@
 import { els } from "../store/elements.js";
 import { ingestCsvText } from "./file.js";
+import sampleDynamicReviewCsv from "../../sample-dynamic-review.csv?raw";
 
 export async function loadSampleData() {
   try {
-    const response = await fetch("./sample-finance.csv");
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const text = await response.text();
-    ingestCsvText(text, "sample-finance.csv");
+    ingestCsvText(sampleDynamicReviewCsv, "sample-dynamic-review.csv");
   } catch (error) {
     els.fileStatus.textContent = `Could not load sample data: ${error.message}`;
   }

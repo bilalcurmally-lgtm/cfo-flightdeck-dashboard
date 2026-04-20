@@ -10,7 +10,7 @@ export function setCurrency(code) {
 
 export function formatCurrency(value) {
   if (!Number.isFinite(value)) return "—";
-  const maximumFractionDigits = ZERO_DECIMAL_CURRENCIES.has(CURRENCY) ? 0 : 0;
+  const maximumFractionDigits = ZERO_DECIMAL_CURRENCIES.has(CURRENCY) ? 0 : 2;
   return new Intl.NumberFormat(LOCALE, {
     style: "currency",
     currency: CURRENCY,
@@ -18,10 +18,27 @@ export function formatCurrency(value) {
   }).format(value);
 }
 
+let _symCache = null;
+let _symCurrency = null;
+
+function currencySymbol() {
+  if (_symCurrency === CURRENCY && _symCache !== null) return _symCache;
+  try {
+    const parts = new Intl.NumberFormat(LOCALE, { style: "currency", currency: CURRENCY, maximumFractionDigits: 0 }).formatToParts(0);
+    _symCache = parts.find((p) => p.type === "currency")?.value ?? "";
+  } catch {
+    _symCache = "";
+  }
+  _symCurrency = CURRENCY;
+  return _symCache;
+}
+
 export function shortCurrency(value) {
   if (!Number.isFinite(value)) return "—";
+  const sym = currencySymbol();
   const abs = Math.abs(value);
-  if (abs >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-  if (abs >= 1000) return `${(value / 1000).toFixed(1)}K`;
-  return `${Math.round(value)}`;
+  const sign = value < 0 ? "-" : "";
+  if (abs >= 1000000) return `${sign}${sym}${(abs / 1000000).toFixed(1)}M`;
+  if (abs >= 1000) return `${sign}${sym}${(abs / 1000).toFixed(1)}K`;
+  return `${sign}${sym}${Math.round(abs)}`;
 }

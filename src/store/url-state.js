@@ -1,7 +1,9 @@
+const VALID_GRAINS = new Set(["daily", "weekly", "monthly"]);
+
 export function readUrlState() {
   const params = new URLSearchParams(window.location.search);
   const state = {};
-  if (params.has("grain")) state.grain = params.get("grain");
+  if (params.has("grain") && VALID_GRAINS.has(params.get("grain"))) state.grain = params.get("grain");
   if (params.has("focusedPeriod")) state.focusedPeriod = params.get("focusedPeriod");
   if (params.has("focusedHead")) state.focusedHead = params.get("focusedHead");
   if (params.has("startDate")) state.startDate = params.get("startDate");

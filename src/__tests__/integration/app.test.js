@@ -30,9 +30,21 @@ async function settle() {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+function createStorageMock() {
+  const store = new Map();
+  return {
+    clear: () => store.clear(),
+    getItem: (key) => store.has(key) ? store.get(key) : null,
+    removeItem: (key) => store.delete(key),
+    setItem: (key, value) => store.set(key, String(value))
+  };
+}
+
 describe("app integration", () => {
   beforeEach(() => {
-    localStorage.clear();
+    const storage = createStorageMock();
+    vi.stubGlobal("localStorage", storage);
+    Object.defineProperty(window, "localStorage", { configurable: true, value: storage });
     window.history.replaceState(null, "", "/");
   });
 
@@ -131,5 +143,27 @@ describe("app integration", () => {
     const saved = JSON.parse(localStorage.getItem("cfo-flight-deck-state"));
     expect(saved.version).toBe(STORAGE_VERSION);
     expect(saved.filters.search).toBe("payroll");
+  });
+
+  it("applies display currency from code search and country/name search", async () => {
+    const { ingestCsvText } = await loadApp();
+
+    ingestCsvText(sampleCsv, "sample-finance.csv");
+    await settle();
+
+    const search = document.getElementById("currencySearchInput");
+    search.value = "PKR";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    await settle();
+
+    expect(document.getElementById("totalRevenue").textContent).toMatch(/PKR|Rs/);
+
+    search.value = "euro";
+    search.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await settle();
+
+    expect(document.getElementById("currencySelect").value).toBe("EUR");
+    expect(document.getElementById("totalRevenue").textContent).toMatch(/€|EUR/);
+    expect(JSON.parse(localStorage.getItem("cfo-flight-deck-state")).currency).toBe("EUR");
   });
 });

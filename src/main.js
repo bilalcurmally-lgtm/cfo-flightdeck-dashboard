@@ -220,21 +220,31 @@ function wireEvents() {
   });
 
   currencySelect.addEventListener("change", () => {
-    state.currency = currencySelect.value;
-    setCurrency(currencySelect.value);
+    applyCurrency(currencySelect.value);
     syncCurrencySearchLabel();
-    render();
   });
 
   currencySearchInput.addEventListener("input", () => {
-    filterCurrencyOptions(currencySearchInput.value);
-    const exact = [...currencySelect.options].find((option) => option.value.toLowerCase() === currencySearchInput.value.trim().toLowerCase());
-    if (exact && exact.value !== currencySelect.value) {
-      currencySelect.value = exact.value;
-      state.currency = exact.value;
-      setCurrency(exact.value);
-      render();
-    }
+    const matches = filterCurrencyOptions(currencySearchInput.value);
+    const exact = findCurrencyMatch(currencySearchInput.value, matches);
+    if (exact) applyCurrency(exact.value);
+  });
+
+  currencySearchInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    const matches = filterCurrencyOptions(currencySearchInput.value);
+    const match = findCurrencyMatch(currencySearchInput.value, matches) || matches[0];
+    if (!match) return;
+    applyCurrency(match.value);
+    syncCurrencySearchLabel();
+  });
+
+  currencySearchInput.addEventListener("blur", () => {
+    const matches = filterCurrencyOptions(currencySearchInput.value);
+    const match = findCurrencyMatch(currencySearchInput.value, matches) || (matches.length === 1 ? matches[0] : null);
+    if (match) applyCurrency(match.value);
+    syncCurrencySearchLabel();
   });
 
   window.addEventListener("datasets:changed", refreshRecentDatasetControls);
@@ -380,6 +390,14 @@ function syncCurrencySearchLabel() {
   filterCurrencyOptions("");
 }
 
+function applyCurrency(code) {
+  if (!code || code === state.currency) return;
+  state.currency = code;
+  currencySelect.value = code;
+  setCurrency(code);
+  render();
+}
+
 function populateCurrencyOptions() {
   if (!currencySelect) return;
   const selected = state.currency || currencySelect.value || "USD";
@@ -391,12 +409,24 @@ function populateCurrencyOptions() {
 }
 
 function filterCurrencyOptions(query) {
-  if (!currencySelect) return;
+  if (!currencySelect) return [];
   const normalized = query.trim().toLowerCase();
-  [...currencySelect.options].forEach((option) => {
+  return [...currencySelect.options].filter((option) => {
     const haystack = `${option.value} ${option.textContent} ${option.dataset.search || ""}`.toLowerCase();
-    option.hidden = Boolean(normalized) && !haystack.includes(normalized);
+    const matches = !normalized || haystack.includes(normalized);
+    option.hidden = !matches;
+    return matches;
   });
+}
+
+function findCurrencyMatch(query, options = []) {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return null;
+  return options.find((option) => {
+    const code = option.value.toLowerCase();
+    const label = option.textContent.trim().toLowerCase();
+    return normalized === code || label.startsWith(`${code} -`) && label.includes(normalized);
+  }) || null;
 }
 
 function restorePersistedState() {

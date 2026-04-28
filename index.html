@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CFO Flight Deck</title>
-  <meta name="description" content="Local finance cockpit for inspecting revenue, cash outflows, anomalies, and transaction drilldowns from CSV exports.">
+  <meta name="description" content="Local finance cockpit for inspecting revenue, cash outflows, anomalies, and transaction drilldowns from CSV and Excel exports.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -16,7 +16,7 @@
     <form id="appGateForm" class="app-gate-card">
       <span class="lbl">Private review</span>
       <h1>CFO Flight Deck</h1>
-      <p>Enter the review password to open the dashboard. CSV files are processed locally in your browser and are not uploaded by this app.</p>
+      <p>Enter the review password to open the dashboard. CSV and Excel files are processed locally in your browser and are not uploaded by this app.</p>
       <label><span>Password</span><input id="appGatePassword" type="password" autocomplete="current-password" placeholder="Review password"></label>
       <button class="primary-button" type="submit">Unlock dashboard</button>
       <p id="appGateStatus" class="footnote" role="status"></p>
@@ -180,10 +180,10 @@
         <section id="helpSection" class="panel cockpit-guide-panel">
           <div class="panel-hd">
             <h3>Help</h3>
-            <p>Local CSV privacy and review notes.</p>
+            <p>Local CSV and Excel privacy and review notes.</p>
           </div>
           <div class="cockpit-guide">
-            <article><strong>Local CSV</strong><span>CSV files are processed locally in your browser. No transaction data is uploaded by this app.</span></article>
+            <article><strong>Local CSV / Excel</strong><span>CSV and Excel files are processed locally in your browser. No transaction data is uploaded by this app.</span></article>
             <article><strong>Auto mapping</strong><span>Date, amount, flow, account head, parent head, and description are detected first, then can be corrected in Column Mapping.</span></article>
             <article><strong>Chart drilldowns</strong><span>Click period bars, account-head bars, or Period Matrix rows to narrow every KPI, insight, chart, and transaction row.</span></article>
           </div>
@@ -201,7 +201,7 @@
             <section class="panel control-panel">
               <div class="panel-hd"><h3>Load Data</h3></div>
               <div class="panel-bd">
-                <label class="file-input"><span>Choose CSV</span><input id="csvFile" type="file" accept=".csv,text/csv"></label>
+                <label class="file-input"><span>Choose CSV / Excel</span><input id="csvFile" type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label>
                 <button id="loadSampleBtn" class="ghost-button" type="button">Load dynamic sample</button>
                 <div class="recent-dataset-row">
                   <label><span>Recent dataset</span><select id="recentDatasetSelect"></select></label>
@@ -211,7 +211,7 @@
                   <label><span>Current Bank Balance</span><input id="currentBankBalance" type="number" placeholder="0"></label>
                   <label><span>Balance As Of</span><input id="balanceAsOf" type="date"></label>
                 </div>
-                <p id="fileStatus" class="status-text">No CSV loaded yet.</p>
+                <p id="fileStatus" class="status-text">No CSV or Excel file loaded yet.</p>
               </div>
             </section>
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { setCurrency, formatCurrency, shortCurrency } from "../config/currency.js";
+import { normalizeCurrencyCode, setCurrency, formatCurrency, shortCurrency } from "../config/currency.js";
 
 beforeEach(() => {
   setCurrency("USD");
@@ -29,6 +29,12 @@ describe("formatCurrency", () => {
 
   it("formats zero", () => {
     expect(formatCurrency(0)).toMatch(/0/);
+  });
+
+  it("falls back to USD for stale or unsupported saved currency values", () => {
+    setCurrency("not-real");
+    expect(formatCurrency(1234.56)).toMatch(/\$|USD/);
+    expect(normalizeCurrencyCode("not-real")).toBe("USD");
   });
 });
 

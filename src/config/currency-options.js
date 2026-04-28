@@ -1,3 +1,5 @@
+import { isSupportedCurrency } from "./currency.js";
+
 const FALLBACK_CODES = [
   "AED", "AFN", "ALL", "AMD", "ANG", "AOA", "ARS", "AUD", "AWG", "AZN",
   "BAM", "BBD", "BDT", "BGN", "BHD", "BIF", "BMD", "BND", "BOB", "BRL",
@@ -29,21 +31,46 @@ const COMMON_ALIASES = {
 };
 
 export function getCurrencyOptions(locale = "en") {
-  const codes = typeof Intl.supportedValuesOf === "function"
-    ? Intl.supportedValuesOf("currency")
-    : FALLBACK_CODES;
-  const names = typeof Intl.DisplayNames === "function"
-    ? new Intl.DisplayNames([locale], { type: "currency" })
-    : null;
+  const codes = getSupportedCurrencyCodes();
+  const names = getDisplayNames(locale);
 
   return [...new Set([...codes, ...FALLBACK_CODES])]
+    .filter(isSupportedCurrency)
     .sort((a, b) => a.localeCompare(b))
     .map((code) => {
-      const name = names?.of(code) || code;
+      const name = safeCurrencyName(names, code);
       return {
         code,
         label: `${code} - ${name}`,
         search: `${code} ${name} ${COMMON_ALIASES[code] || ""}`.toLowerCase()
       };
     });
+}
+
+function getSupportedCurrencyCodes() {
+  try {
+    return typeof Intl.supportedValuesOf === "function"
+      ? Intl.supportedValuesOf("currency")
+      : FALLBACK_CODES;
+  } catch {
+    return FALLBACK_CODES;
+  }
+}
+
+function getDisplayNames(locale) {
+  try {
+    return typeof Intl.DisplayNames === "function"
+      ? new Intl.DisplayNames([locale], { type: "currency" })
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function safeCurrencyName(names, code) {
+  try {
+    return names?.of(code) || code;
+  } catch {
+    return code;
+  }
 }

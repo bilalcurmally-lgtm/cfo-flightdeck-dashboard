@@ -1,7 +1,7 @@
 import { state } from "./store/state.js";
 import { els, dateFormatSelect, grainButtons, flowButtons, currencySelect, currencySearchInput } from "./store/elements.js";
 import { registerRender } from "./store/renderer.js";
-import { onFileSelected, ingestRows, applyCurrentMapping } from "./io/file.js";
+import { onFileSelected, ingestRows, ingestFile, applyCurrentMapping } from "./io/file.js";
 import { loadSampleData } from "./io/fetch.js";
 import { computeFinanceView, serializeFinanceFilters } from "./finance/finance-view.js";
 import { createFinanceWorkerClient } from "./worker/finance-worker-client.js";
@@ -20,7 +20,7 @@ import { buildTickerItems, mountTicker } from "./render/ticker.js";
 import { renderFlowDiagram } from "./render/flow-diagram.js";
 import { exportVisibleRows } from "./render/export.js";
 import { saveState, loadState } from "./store/local-storage.js";
-import { setCurrency } from "./config/currency.js";
+import { normalizeCurrencyCode, setCurrency } from "./config/currency.js";
 import { debounce } from "./core/debounce.js";
 import { readUrlState, writeUrlState } from "./store/url-state.js";
 import { MAX_FILE_SIZE, VALID_EXTENSIONS, VALID_TYPES } from "./io/constants.js";
@@ -372,12 +372,10 @@ function wireEvents() {
     }
     const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
     if (!VALID_EXTENSIONS.includes(ext) && !VALID_TYPES.includes(file.type)) {
-      els.fileStatus.textContent = "Please drop a CSV file.";
+      els.fileStatus.textContent = "Please drop a CSV or Excel file.";
       return;
     }
-    file.text().then((text) => {
-      ingestCsvText(text, file.name);
-    }).catch(() => {
+    ingestFile(file).catch(() => {
       els.fileStatus.textContent = "Could not read the dropped file.";
     });
   });
@@ -391,21 +389,24 @@ function syncCurrencySearchLabel() {
 }
 
 function applyCurrency(code) {
-  if (!code || code === state.currency) return;
-  state.currency = code;
-  currencySelect.value = code;
-  setCurrency(code);
+  const normalized = normalizeCurrencyCode(code);
+  if (!normalized || normalized === state.currency) return;
+  state.currency = normalized;
+  currencySelect.value = normalized;
+  setCurrency(normalized);
   render();
 }
 
 function populateCurrencyOptions() {
   if (!currencySelect) return;
-  const selected = state.currency || currencySelect.value || "USD";
+  const selected = normalizeCurrencyCode(state.currency || currencySelect.value || "USD");
   currencySelect.innerHTML = getCurrencyOptions()
     .map((option) => `<option value="${escapeHtml(option.code)}" data-search="${escapeHtml(option.search)}">${escapeHtml(option.label)}</option>`)
     .join("");
   currencySelect.value = selected;
   if (!currencySelect.value) currencySelect.value = "USD";
+  state.currency = currencySelect.value;
+  setCurrency(state.currency);
 }
 
 function filterCurrencyOptions(query) {
@@ -459,9 +460,9 @@ function restorePersistedState() {
     renderForecastPanels();
   }
   if (saved.currency) {
-    state.currency = saved.currency;
-    currencySelect.value = saved.currency;
-    setCurrency(saved.currency);
+    state.currency = normalizeCurrencyCode(saved.currency);
+    currencySelect.value = state.currency;
+    setCurrency(state.currency);
   }
   syncCurrencySearchLabel();
   if (saved.grain) {

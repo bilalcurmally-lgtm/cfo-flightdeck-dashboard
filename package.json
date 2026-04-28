@@ -1,7 +1,7 @@
 {
   "name": "dashboard",
   "version": "1.0.1",
-  "description": "Local, interactive finance dashboard for CEO-level review of revenue and cash outflows from a CSV export.",
+  "description": "Local, interactive finance dashboard for CEO-level review of revenue and cash outflows from CSV and Excel exports.",
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
@@ -57,5 +57,8 @@
     "jsdom": "^29.0.2",
     "vite": "^8.0.8",
     "vitest": "^4.1.4"
+  },
+  "dependencies": {
+    "read-excel-file": "^9.0.6"
   }
 }

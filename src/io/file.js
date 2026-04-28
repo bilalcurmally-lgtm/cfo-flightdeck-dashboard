@@ -3,6 +3,7 @@ import { els, mappingSelects, dateFormatSelect, aliasInputs } from "../store/ele
 import { render } from "../store/renderer.js";
 import { parseCsv } from "../csv/parse.js";
 import { matchColumn, mapRowToRecord } from "../csv/map.js";
+import { parseExcelWorkbook } from "./excel.js";
 import { detectDateFormat } from "../core/date.js";
 import { escapeHtml } from "../core/escape.js";
 import { getRevenueAliases, getOutflowAliases } from "../config/aliases.js";
@@ -13,22 +14,40 @@ import { saveDataset } from "../store/dataset-store.js";
 export async function onFileSelected(event) {
   const file = event.target.files[0];
   if (!file) return;
+  await ingestFile(file);
+  event.target.value = "";
+}
+
+export async function ingestFile(file) {
   if (file.size > MAX_FILE_SIZE) {
     els.fileStatus.textContent = `File is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is 50MB.`;
     return;
   }
   const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
   if (!VALID_EXTENSIONS.includes(ext) && !VALID_TYPES.includes(file.type)) {
-    els.fileStatus.textContent = "Please upload a CSV file.";
+    els.fileStatus.textContent = "Please upload a CSV or Excel file.";
     return;
   }
   try {
+    if (isExcelFile(file, ext)) {
+      const sheets = await parseExcelWorkbook(file);
+      const selectedSheet = sheets.find((sheet) => sheet.rows.length) || sheets[0];
+      const label = selectedSheet ? `${file.name} / ${selectedSheet.name}` : file.name;
+      ingestRows(selectedSheet?.rows || [], label, { persist: true, resetFilters: true });
+      if (sheets.length > 1 && selectedSheet?.rows.length) {
+        els.fileStatus.textContent = `Loaded ${label} with ${selectedSheet.rows.length.toLocaleString()} rows. Mapping applied automatically.`;
+      }
+      return;
+    }
     const text = await file.text();
     ingestCsvText(text, file.name);
   } catch (error) {
     els.fileStatus.textContent = `Could not read file: ${error.message}`;
   }
-  event.target.value = "";
+}
+
+function isExcelFile(file, ext) {
+  return ext === ".xlsx" || file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 }
 
 export function ingestCsvText(text, fileName, options = {}) {
@@ -56,7 +75,7 @@ export function ingestRows(rows, fileName, { persist = false, resetFilters = tru
       unknownFlowLabels: [],
       persistedDataset: false
     };
-    renderEmptyState("The CSV is empty or could not be parsed.");
+    renderEmptyState("The file is empty or could not be parsed.");
     return;
   }
 
